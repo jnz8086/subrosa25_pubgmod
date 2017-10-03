@@ -1,0 +1,3274 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CheatTable CheatEngineTableVersion="26">
+  <CheatEntries>
+    <CheatEntry>
+      <ID>0</ID>
+      <Description>"main.cea"</Description>
+      <LastState/>
+      <VariableType>Auto Assembler Script</VariableType>
+      <AssemblerScript>[ENABLE]
+
+
+{
+  =============  `` PUBG-mod `` for Sub Rosa dedicated server 0.25b ========
+
+  &lt; Keep in mind, that this thing is unfinished and probably very unstable! &gt;
+
+  Feel free to contribute.
+
+}
+
+//-------------  gameplay settings -----------------------
+
+//todo: move to some kind of a config file (.ini?)
+
+define(maxplayers,#32)
+define(minplayers,#2)
+define(waitingtime,#4000) //time for matchmaking
+define(falldmg_timer,#500) //about 8 seconds just in case
+define(burger_health,#4)
+define(outsidezone_dmg,#5)
+//define(wave_duration,#9000)
+define(wave_duration,mydata+240)
+//define(nozone,#3000)
+define(nozone,mydata+244)
+define(guns_to_bandages_ratio,3)
+define(toplist,5)
+define(prize_winner,#10000)
+define(prize_generic,#50) //(for staying alive per place)
+define(prize_kill,#150)
+
+define(verbose,1) //print chat messages to the console window
+
+
+//-------------  addresses and structs -------------------
+
+{
+I'm not 100% sure, but I think all of the game objects are stored in static
+arrays of fixed capacity. The first integer in most structs indicates that
+the object is active.
+
+In short, this mod primarely uses the following structures:
+ 'Player' - contains the player's team, inputs, messages, and some other stuff.
+            Includes the bots, but I couldn't come up with a better name.
+ 'Human' - defines most stats and the physical body. Includes the bots as well.
+ 'Corp' - represents the teams and their mission objectives.
+ 'Vehicle' - vehicles, including the trains.
+ 'Item' - the guns and other items, including the ones held in the inventory.
+ 'MyPlayer' - the player registry of this mod.
+ 'Building' - locations on the map to spawn guns and restrict the zone to. (buildings.bin)
+
+  These and some other structs are explained below.
+}
+
+
+define(servertitle,subrosadedicated025b.exe+BA2DE74) // }
+define(maxplayers,subrosadedicated025b.exe+BA2DEBC)  // } editable!
+
+
+define(playercount,subrosadedicated025b.exe+1C53240)
+define(gamestate,subrosadedicated025b.exe+D4F9960)
+            //(1 - round hasn't started, 2 - round started, 3 - round finished)
+define(timer1,subrosadedicated025b.exe+D4F9964) //game cycles countdown
+define(timer2,subrosadedicated025b.exe+1E68B854) //this one is useless actually
+
+define(cycles_per_minute,#3600) //per ingame minute, that is
+
+define(billboard_text,subrosadedicated025b.exe+D4F9978)
+
+define(player0,subrosadedicated025b.exe+114EC160)
+define(playersize,2464)
+  define(player_name,04)
+  define(player_account,34) //protip: change it to join from two windows
+  define(player_cash,40)
+  define(player_team,64) //0 - Goldmen, 6 - Megacorp, 7 - Observers/Civilians
+  define(player_mount,64) //2 in a car, 1 walking, 0 for idling AI
+  define(player_menu,D4)
+  define(player_human,78)
+define(playercap,#256)
+
+define(human0,subrosadedicated025b.exe+15CE9E0)
+define(humansize,2B90)
+  define(human_player,08)
+  define(human_stocks,10)
+  define(human_hunger,14)
+  define(human_carid,20)   // } can be modified directly, which is the easiest
+  define(human_carseat,24) // } way to teleport someone.
+  define(human_lastcar,28)
+  define(human_lastcartimer,2C)
+  define(human_health,34)
+  define(human_getout,3C)
+  define(human_protection,40)
+  define(human_grounded,44)
+  define(human_zoom,48) // 0/1/2 (run/walk/aim)
+  define(human_yaw,6C)
+  define(human_pitch,70)
+  define(human_caryaw,8C)
+  define(human_carpitch,90)
+  define(human_height,94)
+  define(human_pitchcontrol,A8)
+  define(human_haxis,AC)
+  define(human_rollcontrol,B0)
+  define(human_vaxis,B4)    //   1   2    4     8   16   32  64 128  256 512  1024 2048 4096
+  define(human_controls,C8) // (lmb,rmb,space,ctrl,shift, ~, 1,  2), (3,  4,   5,   E,   R)
+  define(human_x,D4)
+  define(human_y,D8)
+  define(human_z,DC)
+  define(human_hand1,2928) // amount held in the slot, followed by 9 item IDs (all ints)
+  define(human_hand2,2950)
+  define(human_slot1,2978)
+  define(human_slot2,29A0)
+  define(human_slot3,29C8)
+  define(human_slot4,29F0)
+  define(human_slot5,2A18)
+  define(human_bleeding,2B48) //the 1st bit turns the hp counter red
+define(humancap,#512)
+
+
+define(corp0,subrosadedicated025b.exe+D4F9A54)
+define(corpsize,127C)
+  define(corp_roundcnt,04)
+  define(corp_missionobjective,0C)
+  define(corp_missionitem,30)
+  define(corp_missioncost,48)
+
+
+define(vehicle0,subrosadedicated025b.exe+999FA00)
+define(vehiclesize,8238)
+  define(vehicle_type,04)
+{
+  00: Town Car
+  01: Town Car 2
+  02: Metro
+  03: Limo
+  04: Turbo
+  05: Turbo S
+  06: Beamer
+  07: Van
+  08: Minivan
+  09: Truck
+  0a: Trailer
+  0b: Helicopter
+  0c: Train (body?)
+  0d: Train (engine?)
+}
+  define(vehicle_rail,08) //for the train (type 0D). Defaults to 1.
+  define(vehicle_health,0C)
+  define(vehicle_lastdriver,14)
+  define(vehicle_x,24)
+  define(vehicle_y,28)
+  define(vehicle_z,2C)
+
+
+define(item0,subrosadedicated025b.exe+D521700)
+define(itemsize,1AC)
+  define(item_unfrozen,04)
+  define(item_type,0C)
+{
+  00: ak47
+  01: ak47 mag
+  02: m16
+  03: m16 mag
+  04: magnum
+  05: .45 bullets
+  06: mp5
+  07: mp5 mag
+  08: uzi
+  09: uzi mag
+  0a: 9mm
+  0b: 9mm mag
+  0c: bandage
+  0d: briefcase
+  0e: open briefcase
+  0f: cash (stack)
+  10: cash (banknote)
+  11: black disk
+  12: green disk
+  13: blue disk
+  14: white disk
+  15: gold disk
+  16: red disk
+  17: phone
+  18: key
+  19: door
+  1a: newspaper
+  1b: burger
+  1c: desk
+  1d: lamp
+}
+  define(item_container,1C)
+  define(item_loaded,24)
+  define(item_loadedwith,28)
+  define(item_x,48)
+  define(item_y,4C)
+  define(item_z,50)
+  define(item_ammo,E0)
+
+
+define(itemtype0,subrosadedicated025b.exe+150C0928)
+define(itemtypesize,25A0)
+  define(itemtype_type,00) //0 - regular, 1 - gun
+  define(itemtype_onehanded,04) //affects the aiming
+  define(itemtype_shotdelay,08)
+  define(itemtype_bullettype,0C)
+  define(itemtype_capacity,14)
+  define(itemtype_bulletspeed,18)
+  define(itemtype_inaccuracy,1C)
+  define(itemtype_name,20)
+  define(itemtype_recoil,44)
+
+
+define(bulletcount,subrosadedicated025b.exe+1C687BA0)
+define(bullet0,subrosadedicated025b.exe+140C600)
+define(bulletsize,5C)
+  define(bullet_type,00)
+  define(bullet_timer,04) //-1 when inactive
+  define(bullet_player,08)
+  //0C } some weapon related stats I'm using
+  //10 } to distinguish between guns.
+  define(bullet_x,14)
+  define(bullet_y,18)
+  define(bullet_z,1C)
+  define(bullet_vx,2C)
+  define(bullet_vy,30)
+  define(bullet_vz,34)
+
+define(msgfunc,subrosadedicated025b.exe+63B0) //(type, *message, channel, variation)
+    { type:      00 and 04 - global, 01 - player message, 02 - phone message,
+                 03 - newspaper, 05 - billboard
+      channel:   -1 for global, player id for type 01, line num for type 03, 00 for billboard
+      variation: for player message: 00 - whisper, 01 - regular, 02 - yell }
+define(armfunc,subrosadedicated025b.exe+29D30) //(player, weapon, amount of mags)
+define(vehiclefunc,subrosadedicated025b.exe+339D0) //(type, *float[3] position, 0, *float[9] orientation, color), returns the id
+
+define(sprintffunc,subrosadedicated025b.exe+61070) //-&gt;MSVCR100.sprintf
+define(randfunc,subrosadedicated025b.exe+6105C) //-&gt;MSVCR100.rand
+define(memcpyfunc,subrosadedicated025b.exe+5F6DC) //-&gt;MSVCR100.memcpy
+define(randmax,7FFF)
+define(printffunc,subrosadedicated025b.exe+610E4) //printf
+define(fopenfunc,subrosadedicated025b.exe+6106C) //-&gt;MSVCR100.fopen
+define(freadfunc,subrosadedicated025b.exe+D5216E8) //-&gt;MSVCR100.fread
+define(fclosefunc,subrosadedicated025b.exe+61068) //-&gt;MSVCR100.fclose
+
+//------------  declarations -----------------------------
+
+alloc(mydata,4096) //storage for variables and string literals used in this mod
+//registerSymbol(mydata)
+loadBinary(mydata, mydata.bin)
+
+define(mymessages,mydata+0) //2 byte offsets for the string literals
+  define(msg_fall,0)
+  define(msg_runover,1)
+  define(msg_runoverby,2)
+  define(msg_bledout,3)
+  define(msg_killed,4)
+  define(msg_died,5)
+  define(msg_suicide,6)
+  define(msg_botkilled,7)
+  define(msg_outside,8)
+  define(msg_pickup,9)
+  define(msg_required,A)
+  define(msg_timeleft,B)
+  define(msg_timesup,C)
+  define(msg_square,D)
+  define(msg_gl,E)
+  define(msg_winner,F)
+  define(msg_rank,10)
+  define(msg_s,11)
+
+define(msg__r,mydata+30)
+define(msg__motd,mydata+101)
+
+//define(tmpstring,mydata+280)
+//define(mygame_bounds_name,mydata+348)
+alloc(tmpstring,2048)
+alloc(tmpstring2,512)
+define(mygame_bounds_name,mydata+300)
+
+define(ammotable,mydata+250) //custom ammo capacity table
+define(bullet0Ctable,mydata+40) //a table connecting bullet stats to weapons
+
+define(mygame_state,mydata+410) //0 - hasn't started, 1 - started, 2 - arena, 3 - ended
+define(mygame_newtimer,mydata+408)
+define(mygame_msg_repeat,mydata+3F8)
+
+define(mygame_bounds_inner,mydata+420)
+define(mygame_bounds_outer,mydata+430)
+
+define(mygame_bounds_initial,mydata+270)
+define(mygame_bounds_speed,mydata+248)
+define(mygame_bounds_tolerance,mydata+24C)
+
+define(mygame_wave_current,mydata+440)
+define(mygame_wave_next,mydata+444)
+define(mygame_wave_expanded,mydata+448)
+define(mygame_wave_final,mydata+44C)
+
+define(helicopterid,mydata+450)
+define(helicopteraddress,mydata+454)
+define(helicopterwaypoint,mydata+458)
+define(helicopterpilot,mydata+464)
+
+define(bounds_marker_inner,mydata+470)
+
+define(mygame_sealevel,mydata+40C)
+define(mygame_arena_pos,mydata+280)
+define(mygame_arena_dist,mydata+28C)
+define(mygame_arena_sealevel,mydata+290)
+define(mygame_arena_car,mydata+294)
+define(mygame_arena_gun,mydata+298)
+define(mygame_arena_time,mydata+29C)
+
+define(mygame_arena_players,mydata+400)
+define(mygame_arena_initialized,mydata+3FC)
+
+define(myplayers_total,mydata+480)  //my player registry
+define(myplayers_alive,mydata+484)
+define(myplayer0,mydata+500)
+define(myplayer_size,40)
+  define(myplayer_alive,0)
+  define(myplayer_human,4)
+  define(myplayer_humanid,8)
+  define(myplayer_player,C)
+  define(myplayer_playerid,10)
+  define(myplayer_name,14)
+  define(myplayer_rank,18)
+  define(myplayer_bleeding,1C)
+  define(myplayer_lastgotshot,20)
+  define(myplayer_lastkiller,24)
+  define(myplayer_lastweapon,28)
+  define(myplayer_frags,2C)
+  define(myplayer_prize,30)
+
+alloc(buildingdata,2112)
+loadBinary(buildingdata, buildings.bin)
+define(buildingcount,21) //(#33)
+define(buildingsize,40)
+{
+   Building struct:
+     float: x1, z1, x2, z2
+     int: plane count; float: y1, y2, y3, y4   (todo: rework in some way)
+     int: max_loot, unused
+     char[20]: name
+}
+
+//--------------  utils  -----------------------------------
+
+alloc(mycode,2048)
+mycode:
+
+
+label(frand) //frand(min,max)
+frand:
+fld dword [esp+8]
+fsub dword [esp+4]
+fabs
+fstp [esp+8]
+call dword ptr [randfunc]
+push eax
+fild dword [esp]
+push randmax
+fidiv dword [esp]
+fmul dword [esp+10]
+fadd dword [esp+C]
+add esp,8
+ret
+
+
+label(frand1)
+frand1:
+call dword ptr [randfunc]
+push eax
+fild dword [esp]
+push randmax
+fidiv dword [esp]
+add esp,8
+ret
+
+
+label(irand) //irand(min,max) -&gt; edx    (unsigned)
+irand:
+call dword ptr [randfunc]
+mov ebx,[esp+8]
+sub ebx,[esp+4]
+inc ebx
+xor edx,edx
+div ebx
+add edx,[esp+4]
+ret
+
+
+label(fsign)
+fsign:
+  push eax
+  ftst
+  fstp st(0)
+  fstsw ax
+  sahf
+  pop eax
+  ja fsign_p
+  jb fsign_n
+      fldz
+      ret
+    label(fsign_p)
+    fsign_p:
+      fld1
+      ret
+    label(fsign_n)
+    fsign_n:
+      fld1
+      fchs
+      ret
+
+{label(fsign)
+fsign:
+  push eax
+  fstp [esp]
+   cmp [esp],0
+   je fsign_null
+   and [esp],80000000
+   or  [esp],3F800000
+  label(fsign_null)
+  fsign_null:
+   fld [esp]
+  add esp,4
+ ret}
+
+
+
+label(strlen) //strlen(esi string) -&gt; eax length
+strlen:
+ xor eax,eax
+ mov ebx,esi
+  label(strlen_loop)
+  strlen_loop:
+   cmp byte [ebx],0
+   je strlen_ret
+    inc eax
+    inc ebx
+   jmp strlen_loop
+  label(strlen_ret)
+  strlen_ret:
+  ret
+
+
+//define(max_msg_len,#63)
+define(max_msg_len,#45)
+label(printmsg) //printmsg(esi msg)
+printmsg:
+  xor eax,eax
+  mov ecx,esi
+  mov edx,esi
+   label(printmsg_split)
+   printmsg_split:
+   xor ebx,ebx
+     label(printmsg_loop)
+     printmsg_loop:
+       inc ebx
+       inc ecx
+   cmp byte [ecx],0
+    sete al
+     je printmsg_printfin
+   cmp byte [ecx],20
+    cmove edx,ecx
+   {jne printmsg_notspace
+     mov edx,ecx
+   label(printmsg_notspace)
+   printmsg_notspace:}
+     cmp ebx,max_msg_len
+      je printmsg_print
+            cmp byte [ecx],0A
+             cmove edx,ecx
+             je printmsg_print
+      jmp printmsg_loop
+   label(printmsg_print)
+   printmsg_print:
+     //push [edx]
+     mov byte [edx],0
+     push edx
+   label(printmsg_printfin)
+   printmsg_printfin:
+     push eax
+       push 00
+       push FFFFFFFF
+       push esi
+       push 00
+       call msgfunc
+       add esp,10
+   pop eax
+   cmp eax,0
+    je printmsg_next
+   ret
+     label(printmsg_next)
+     printmsg_next:
+       pop edx
+        //pop eax
+        //mov byte [edx],eax
+       //pop [edx]
+        mov byte [edx],20
+      mov esi,edx
+      mov ecx,edx
+     jmp printmsg_split
+
+
+
+label(falldmg_check) //(esi human) -&gt; eax cancel_death
+falldmg_check:
+mov eax,1
+cmp [gamestate],2
+jne falldmg_check_skip
+cmp [esi+human0+human_health],-5
+jle falldmg_check_skip
+xor eax,eax
+cmp [esi+human0+human_hand1+4],FFFFFFFF // parachute flag
+//cmp [esi+human0+human_health],#101
+jl falldmg_check_skip
+mov ebx,[esi+human0+human_hand1+8] // timer
+cmp ebx,0
+je falldmg_settimer
+sub ebx,falldmg_timer
+cmp ebx,[timer1]
+jg falldmg_check_skip
+mov eax,1
+jmp falldmg_check_skip
+label(falldmg_settimer)
+falldmg_settimer:
+mov ebx,[timer1]
+mov [esi+human0+human_hand1+8],ebx
+mov eax,1
+dec [esi+human0+human_health]
+label(falldmg_check_skip)
+falldmg_check_skip:
+ret
+
+
+label(searchmyplayer) //(esi human) -&gt; eax myplayer
+searchmyplayer:
+mov eax,esi
+add eax,human0
+mov ecx,0
+mov ebx,myplayer0
+label(searchmyplayer_loop)
+searchmyplayer_loop:
+cmp [ebx+myplayer_human],eax
+je searchmyplayer_return
+add ebx,myplayer_size
+inc ecx
+cmp ecx,[myplayers_total]
+jl searchmyplayer_loop
+mov eax,FFFFFFFF
+ret
+label(searchmyplayer_return)
+searchmyplayer_return:
+mov eax,ebx
+ret
+
+label(registerdeath) //(msg_num, second %s, third %s])
+registerdeath:
+call searchmyplayer
+cmp eax,FFFFFFFF
+  je registerdeath_return
+cmp [eax+myplayer_alive],0
+  je registerdeath_return
+        mov [eax+myplayer_alive],0
+        dec [myplayers_alive]
+        mov edx,[myplayers_total]
+        sub edx,[myplayers_alive]
+        mov [eax+myplayer_rank],edx
+          imul edx,prize_generic
+          add [eax+myplayer_prize],edx
+          mov ecx,[eax+myplayer_player]
+          add [ecx+player_cash],edx
+cmp [esp+4],FFFFFFFF
+  je registerdeath_return
+mov ebp,esp
+ push [ebp+C]
+ push [ebp+8]
+ push [eax+myplayer_name]
+  mov edx,[ebp+4]
+  mov eax,mymessages
+  add ax,[mymessages+edx*2]
+ push eax
+push tmpstring
+call dword ptr [sprintffunc]
+mov esp,ebp
+push 00
+push FFFFFFFF
+push tmpstring
+push 00
+call msgfunc
+add esp,10
+label(registerdeath_return)
+registerdeath_return:
+ret
+
+label(registergettingshot) //(ebx myplayer)
+registergettingshot:
+  mov esi,[ebx+myplayer_human]
+  sub esi,human0
+mov eax,[ebx+myplayer_lastkiller]
+cmp eax,FFFFFFFF
+  je registergettingshot_bot
+cmp eax,ebx
+  je registergettingshot_suicide
+      inc [eax+myplayer_frags]
+      add [eax+myplayer_prize],prize_kill
+      mov edx,[eax+myplayer_player]
+      add [edx+player_cash],prize_kill
+    push [ebx+myplayer_lastweapon]
+    push [eax+myplayer_name]
+    push msg_killed
+  jmp registergettingshot_reg
+label(registergettingshot_bot)
+registergettingshot_bot:
+    push FFFFFFFF
+    push FFFFFFFF
+    push msg_botkilled
+  jmp registergettingshot_reg
+label(registergettingshot_suicide)
+registergettingshot_suicide:
+    push FFFFFFFF
+    push FFFFFFFF
+    push msg_suicide
+label(registergettingshot_reg)
+registergettingshot_reg:
+    call registerdeath
+    add esp,C
+ret
+
+
+
+label(endround)
+endround:
+    mov [mygame_state],3
+    //mov [gamestate],3
+    mov [mygame_newtimer],#200
+  mov ebx,1
+  label(endround_ranks)
+  endround_ranks:
+    mov ecx,[myplayers_total]
+    cmp ecx,0
+     je endround_ret
+    dec ecx
+      //mov edx,ecx
+      //imul edx,myplayer_size
+      xor edx,edx
+    label(endround_loop)
+    endround_loop:
+      cmp ebx,1
+        jne endround_reg
+      cmp [edx+myplayer0+myplayer_alive],1
+        jne endround_reg
+      pushad
+        mov ebx,[myplayers_total]
+        mov [edx+myplayer0+myplayer_rank],ebx
+          add [edx+myplayer0+myplayer_prize],prize_winner
+          mov ebx,[edx+myplayer0+myplayer_player]
+          add [ebx+player_cash],prize_winner
+        push [edx+myplayer0+myplayer_name]
+          mov edx,mymessages
+          add dx,[mymessages+msg_winner*2]
+         push edx
+        push tmpstring
+        call dword ptr [sprintffunc]
+        add esp,C
+            mov esi,tmpstring
+            call printmsg
+                     mov ecx,#32
+                     xor edx,edx
+                     label(endround_billboard_clear)
+                     endround_billboard_clear:
+                        mov byte [billboard_text+edx],0
+                     loop endround_billboard_clear
+                 push #31
+                 mov edx,[esp+18]
+                 push [edx+myplayer0+myplayer_name]
+                 push billboard_text
+                 call memcpyfunc
+                 add esp,C
+      popad
+        label(endround_reg)
+        endround_reg:
+        mov ebp,[myplayers_total]
+        sub ebp,ebx
+        inc ebp
+        //imul edx,myplayer_size
+        cmp [edx+myplayer0+myplayer_rank],ebp
+        jne endround_next
+      pushad
+          push [edx+myplayer0+myplayer_prize]
+          push [edx+myplayer0+myplayer_frags]
+          push [edx+myplayer0+myplayer_name]
+          push ebx
+           mov ebx,mymessages
+           add bx,[mymessages+msg_rank*2]
+          push ebx
+          push tmpstring
+          call dword ptr [sprintffunc]
+          add esp,18
+        mov esi,tmpstring//mydata+1CC
+        call printmsg
+      popad
+      label(endround_next)
+      endround_next:
+    //loop endround_loop
+    add edx,myplayer_size
+    dec ecx
+    cmp ecx,0
+    jge endround_loop
+  cmp ebx,[myplayers_total]
+    jg endround_ret
+  inc ebx
+  cmp ebx,toplist
+    jle endround_ranks
+  label(endround_ret)
+        endround_ret:
+ret
+
+
+label(minplayersmsg)
+minplayersmsg:
+    push minplayers
+      mov eax,mymessages
+      add ax,[mymessages+msg_required*2]
+     push eax
+    push tmpstring
+    call dword ptr [sprintffunc]
+         push 00
+         push FFFFFFFF
+          push tmpstring
+         push 00
+         call msgfunc
+    add esp,1C
+ret
+
+
+
+
+//----- on round start -----------------------------
+
+alloc(newmem_roundstart,2048)
+label(returnhere_roundstart)
+label(originalcode_roundstart)
+label(exit_roundstart)
+
+newmem_roundstart:
+
+pushad
+pushfd
+
+mov [mygame_state],1
+mov [mygame_newtimer],FFFFFFFF
+mov [mygame_msg_repeat],FFFFFFFF
+  mov eax,[mygame_bounds_initial]
+  mov [mygame_bounds_inner],eax
+  mov [mygame_bounds_outer],eax
+    mov eax,[mygame_bounds_initial+4]
+    mov [mygame_bounds_inner+4],eax
+    mov [mygame_bounds_outer+4],eax
+  mov eax,[mygame_bounds_initial+8]
+  mov [mygame_bounds_inner+8],eax
+  mov [mygame_bounds_outer+8],eax
+    mov eax,[mygame_bounds_initial+C]
+    mov [mygame_bounds_inner+C],eax
+    mov [mygame_bounds_outer+C],eax
+  mov [mygame_sealevel],C2480000 //-50.0
+ mov [mygame_wave_current],0
+ mov [mygame_wave_final],0
+ mov [mygame_wave_expanded],1
+  sub edx,#1000 //[wave_duration]
+ mov [mygame_wave_next],edx
+ //sub [mygame_wave_next],wave_duration
+mov [helicopterpilot],FFFFFFFF
+  mov [mygame_arena_initialized],0
+
+
+mov edx,mymessages
+add dx,[mymessages+msg_gl*2]
+mov esi,edx
+call printmsg
+
+//--- spawn the guns and stuff -------
+
+{push [human0+human_hand1]
+push [human0+human_hand2]
+push [human0+human_hand2+4]
+push [human0+human_slot1]
+push [human0+human_slot2]
+push [human0+human_slot3]
+push [human0+human_slot4]
+push [human0+human_slot5]}
+
+mov [human0+human_hand1],1
+mov [human0+human_hand2],1
+mov [human0+human_slot1],2
+mov [human0+human_slot2],2
+mov [human0+human_slot3],2
+mov [human0+human_slot4],2
+mov [human0+human_slot5],2
+
+
+push [human0+human_x]
+push [human0+human_y]
+push [human0+human_z]
+
+mov ebx, buildingdata
+mov ecx, buildingcount
+label(spawnweaponsloop)  //for each building
+label(spawnweaponsloop2) //some amount
+label(spawnweaponsloop2_skip)
+spawnweaponsloop:
+
+push ecx
+push ebx
+
+mov ebx,[ebx+24]
+cmp ebx,0
+ je spawnweaponsloop2_skip
+
+push ebx
+//push 0
+push 1
+call irand
+add esp,8
+                                     {mov ebx,[esp+4]
+                                     mov [mydata+340+ebx],dl}
+//cmp edx,2
+{cmp edx,1
+jl spawnweaponsloop2_skip}
+//sub edx,1
+
+spawnweaponsloop2:
+push edx
+
+mov ebx,[esp+4]
+
+//x
+push [ebx+8]
+push [ebx+0]
+call frand
+add esp,8
+fstp [human0+human_x]
+
+//z
+push [ebx+C]
+push [ebx+4]
+call frand
+add esp,8
+fstp [human0+human_z]
+
+//y
+push [ebx+10]
+push 1
+call irand
+add esp,8
+mov eax,4
+mul edx
+add eax,[esp+4]
+fld dword [eax+10]
+fstp [human0+human_y]
+
+//check whether we're gonna spawn a gun or a bandage
+
+{call dword ptr [randfunc]
+and eax,3}
+  push guns_to_bandages_ratio
+  push 1
+  call irand
+  add esp,8
+cmp edx,1
+je spawnweaponsloop_skipweapon
+
+//ammo
+push 5
+push 1
+call irand
+add esp,8
+push edx
+
+//weapon
+push 5
+push 0
+call irand
+add esp,8
+mov eax,2
+mul edx
+push eax
+
+jmp spawnweaponsloop_skipbandage
+
+label(spawnweaponsloop_skipweapon)
+spawnweaponsloop_skipweapon:
+
+push 0
+
+{call dword ptr [randfunc]
+and eax,3
+imul eax,3
+shr eax,3}
+  push 3
+  push 1
+  call irand
+  add esp,8
+  not edx
+  and edx,1
+imul edx,1B-C
+add edx,C
+push edx
+
+label(spawnweaponsloop_skipbandage)
+spawnweaponsloop_skipbandage:
+
+push 0
+call armfunc
+add esp,0C
+
+pop edx
+dec edx
+cmp edx,0
+jg spawnweaponsloop2
+spawnweaponsloop2_skip:
+
+pop ebx
+add ebx, buildingsize
+pop ecx
+
+//loop spawnweaponsloop
+  dec ecx
+  cmp ecx,0
+  jne spawnweaponsloop
+
+
+{
+push 0
+push 1C
+push 0
+call armfunc
+mov eax,[esp-5C]
+inc eax
+imul eax,itemsize
+mov [bounds_marker_inner],eax
+add esp,0C
+}
+
+
+pop [human0+human_z]
+pop [human0+human_y]
+pop [human0+human_x]
+
+{pop [human0+human_slot5]
+pop [human0+human_slot4]
+pop [human0+human_slot3]
+pop [human0+human_slot2]
+pop [human0+human_slot1]
+pop [human0+human_hand2+4]
+pop [human0+human_hand2]
+pop [human0+human_hand1]}
+
+
+
+//---------- heli -----------------
+
+push 4
+fldpi
+fimul [esp]
+fstp [esp]
+push 0
+call frand
+
+fsincos
+fstp [esp+4] // sin
+fstp [esp]   // cos
+
+push #600
+fild [esp]
+fstp [esp]   // distance
+
+mov ebp,esp
+
+//position
+
+push #600     // z
+fld [ebp]
+fmul [ebp+4]
+fiadd [esp]
+fstp [esp]
+
+{fld [ebp]
+fmul [ebp+4]
+fchs
+fadd [esp]}
+  push #848
+  fild [esp]
+  pop eax
+fstp [helicopterwaypoint+8]
+
+push #250     // y
+fild [esp]
+fst [esp]
+fstp [helicopterwaypoint+4]
+
+push #700     // x
+fld [ebp]
+fmul [ebp+8]
+fiadd [esp]
+fstp [esp]
+
+{fld [ebp]
+fmul [ebp+4]
+fchs
+fadd [esp]}
+  push #677
+  fild [esp]
+  pop eax
+fstp [helicopterwaypoint+0]
+
+//orientation
+
+push 1
+//fild [esp]
+fld [ebp+4]
+fstp [esp]
+   push 0
+   fild [esp]
+   fstp [esp]
+push 0
+//fild [esp]
+fld [ebp+8]
+fstp [esp]
+        push 0
+        fild [esp]
+        fstp [esp]
+           push 1
+           fild [esp]
+           fstp [esp]
+        push 0
+        fild [esp]
+        fstp [esp]
+push 0
+//fild [esp]
+fld [ebp+8]
+fchs
+fstp [esp]
+   push 0
+   fild [esp]
+   fstp [esp]
+push 1
+//fild [esp]
+fld [ebp+4]
+fstp [esp]
+
+//---
+
+push 3
+
+lea eax,[esp+4]
+push eax
+
+push 0
+
+lea eax,[esp+30]
+push eax
+
+push B
+//push 1
+
+call vehiclefunc
+add esp,50
+mov [helicopterid],eax
+mov ebx,eax
+mov edx,vehiclesize
+mul edx
+add eax,vehicle0
+mov [helicopteraddress],eax
+//mov [eax],0
+
+
+
+//--- put people inside, and also register them ----
+
+mov [myplayers_total],0
+mov [myplayers_alive],0
+mov ebp,myplayer0
+
+mov ebx,human0
+//mov ecx,humancap
+mov ecx,0
+//mov ebx,[playercount]
+label(heliplayerloop)
+label(heliplayerloop_ai)
+label(heliplayerloop_skip)
+heliplayerloop:
+
+cmp [ebx],1
+jne heliplayerloop_skip
+
+mov eax,[ebx+human_player]
+mov edx,playersize
+mul edx
+add eax,player0
+cmp [eax+player_team],6 //AI
+je heliplayerloop_ai
+
+cmp [ebx+human_player],FFFFFFFF
+je heliplayerloop_skip
+
+inc [myplayers_total]
+inc [myplayers_alive]
+mov [ebp+myplayer_alive],1
+mov [ebp+myplayer_bleeding],0
+mov [ebp+myplayer_player],eax
+mov edx,[ebx+human_player]
+mov [ebp+myplayer_playerid],edx
+mov [ebp+myplayer_human],ebx
+mov [ebp+myplayer_humanid],ecx
+mov [ebp+myplayer_name],eax
+add [ebp+myplayer_name],player_name
+mov [ebp+myplayer_rank],0
+mov [ebp+myplayer_lastgotshot],40000 //FFFFFFFF
+mov [ebp+myplayer_lastkiller],FFFFFFFF
+mov [ebp+myplayer_lastweapon],0 //FFFFFFFF
+mov [ebp+myplayer_frags],0
+mov [ebp+myplayer_prize],0
+
+add ebp,myplayer_size
+
+
+//mov [ebx+human_health],64
+mov [ebx+human_bleeding],0
+mov edx,[helicopterid]
+mov [ebx+human_carid],edx
+
+pushad
+push 3
+push 1
+call irand
+add esp,8
+mov ebx,[esp+10]
+mov [ebx+human_carseat],edx
+popad
+
+mov [ebx+human_getout],0
+
+//unarm everyone just in case
+mov [ebx+human_hand1],0
+mov [ebx+human_hand2],0
+mov [ebx+human_slot1],0
+mov [ebx+human_slot2],0
+mov [ebx+human_slot3],0
+mov [ebx+human_slot4],0
+mov [ebx+human_slot5],0
+
+//the parachute thing
+mov [ebx+human_health],#101
+mov [ebx+human_hand1+4],FFFFFFFF
+mov [ebx+human_hand1+8],0
+
+jmp heliplayerloop_skip
+
+
+heliplayerloop_ai:
+mov [ebx+human_health],-5
+cmp [helicopterpilot],FFFFFFFF
+jne heliplayerloop_skip
+//assigning the heli pilot
+mov [helicopterpilot],ebx
+sub [helicopterpilot],human0
+mov [ebx+human_health],#100
+mov eax,[helicopterid]
+mov [ebx+human_carid],eax
+mov [ebx+human_carseat],0
+mov [ebx+human_hand1],0
+mov [ebx+human_hand1+4],0
+mov [ebx+human_hand2],0
+mov [ebx+human_hand2+4],0
+  push 0
+  push 1A
+  push ecx//[ebx+human_player]
+  call armfunc
+  add esp,C
+
+
+heliplayerloop_skip:
+add ebx,humansize
+//loop heliplayerloop
+  inc ecx
+  cmp ecx,humancap
+  jl heliplayerloop
+
+
+ //fail safety
+
+  cmp [myplayers_total],1//2//minplayers
+  jge roundstart_allgood
+    //mov [mygame_state],0
+    //mov [gamestate],3
+    //mov [timer1],100
+        mov [mygame_state],3
+        mov [myplayers_total],0
+        mov [myplayers_alive],0
+
+    call minplayersmsg
+
+  label(roundstart_allgood)
+  roundstart_allgood:
+
+popfd
+popad
+
+
+originalcode_roundstart:
+mov [subrosadedicated025b.exe+D4F9960],ebx
+
+exit_roundstart:
+jmp returnhere_roundstart
+
+"subrosadedicated025b.exe"+5DD69:
+jmp newmem_roundstart
+nop
+returnhere_roundstart:
+
+
+
+
+
+
+//------------- on game cycle ------------------------------------
+
+
+alloc(newmem_roundframe,4096)
+label(returnhere_roundframe)
+label(originalcode_roundframe)
+label(exit_roundframe)
+
+newmem_roundframe:
+
+pushad
+pushfd
+
+cmp [mygame_state],0
+  je roundframe_players_skip
+cmp [mygame_state],3
+  je roundframe_players_skip
+
+mov eax,[timer1]
+cmp eax,[mygame_msg_repeat]
+jg roundframe_msgrepeat_skip
+   mov esi,tmpstring2
+   call printmsg
+   mov [mygame_msg_repeat],FFFFFFFF
+label(roundframe_msgrepeat_skip)
+roundframe_msgrepeat_skip:
+
+//--- victory condition check -------
+
+cmp [mygame_state],3
+  je roundframe_victory_skip
+
+ cmp [myplayers_total],1
+  je roundframe_victory_skip
+
+ cmp [myplayers_alive],1
+  jg roundframe_victory_skip
+
+  call endround
+ jmp roundframe_players_skip
+
+label(roundframe_victory_skip)
+roundframe_victory_skip:
+
+
+//--- arena mechanics -------
+
+
+cmp [mygame_state],2
+ jne roundframe_arena_init_skip
+cmp [mygame_arena_initialized],0
+ jne roundframe_arena_init_skip
+          push 7
+          push [mygame_arena_gun]
+          mov eax,[mygame_arena_players+0]
+          push [eax+myplayer0+myplayer_humanid]
+          call armfunc
+              push 7
+              push [mygame_arena_gun]
+              mov eax,[mygame_arena_players+4]
+              push [eax+myplayer0+myplayer_humanid]
+              call armfunc
+         add esp,18
+     mov [mygame_arena_initialized],1
+label(roundframe_arena_init_skip)
+roundframe_arena_init_skip:
+
+
+cmp [mygame_state],1
+ jne roundframe_arena_skip
+cmp [myplayers_total],2
+ jle roundframe_arena_skip
+cmp [myplayers_alive],2
+ jne roundframe_arena_skip
+
+ mov [mygame_state],2
+  mov eax,[mygame_arena_sealevel]
+  mov [mygame_sealevel],eax
+ mov eax,[mygame_arena_time]
+ mov [mygame_newtimer],eax
+
+ mov ecx,[myplayers_total]
+ xor eax,eax
+ xor edx,edx
+ label(roundframe_arena_loop)
+ roundframe_arena_loop:
+       cmp [eax+myplayer0+myplayer_alive],1
+       jne roundframe_arena_loop_next
+          push eax
+          push ecx
+          push edx
+            //spawn a vehicle
+             //orientation
+              // z
+               push 0
+               push 0
+               push 3F800000 //1.0
+                 cmp edx,1
+                 je arena_loop_1st_x
+                   xor [esp],80000000
+                 label(arena_loop_1st_x)
+                 arena_loop_1st_x:
+              // y
+                  push 0
+                  push 3F800000 //1.0
+                  push 0
+              // x
+               push BF800000 //-1.0
+                 cmp edx,1
+                 je arena_loop_1st_z
+                   xor [esp],80000000
+                 label(arena_loop_1st_z)
+                 arena_loop_1st_z:
+               push 0
+               push 0
+             //position
+               push [mygame_arena_pos+8]
+               push [mygame_arena_pos+4]
+              fild [esp+2C]
+              //f2xm1
+                 fadd st(0),st(0)
+                 fld1
+                 fsubp
+              fmul [mygame_arena_dist]
+              fadd [mygame_arena_pos+0]
+              push eax
+              fstp [esp]
+                 push edx //color
+                   inc [esp]
+                 lea eax,[esp+10]
+                 push eax //*orientation
+                 push 0
+                 lea eax,[esp+C]
+                 push eax //*position
+                 push [mygame_arena_car] //type
+                 call vehiclefunc
+                add esp,44
+               mov ebp,eax
+             {pop edx
+             pop ecx
+             pop eax}
+             mov edx,[esp]
+             mov ecx,[esp+4]
+             mov eax,[esp+8]
+           mov ebx,[eax+myplayer0+myplayer_human]
+           mov [ebx+human0+human_health],#100
+           mov [ebx+human_health],#100
+           mov [eax+myplayer0+myplayer_bleeding],0
+            mov [ebx+human_carid],ebp
+            mov [ebx+human_carseat],0
+            mov [ebx+human_getout],0
+            //guns
+                      mov [ebx+human_hand1],0
+                      mov [ebx+human_hand2],0
+                      mov [ebx+human_slot1],0
+                      mov [ebx+human_slot2],0
+                      mov [ebx+human_slot3],0
+                      mov [ebx+human_slot4],0
+                      mov [ebx+human_slot5],0
+              {push 7
+              push [mygame_arena_gun]
+              push [eax+myplayer0+myplayer_playerid]
+              call armfunc
+                //fix the gun position
+                  mov ecx,[esp-5C]
+                  sub ecx,7
+                    mov [ebx+human_hand1],0
+                    mov [ebx+human_hand1+4],0
+                    mov [ebx+human_slot1],1
+                    mov [ebx+human_slot1+4],ecx
+                    mov [ebx+human_slot1+8],0
+                    mov [ebx+human_hand2],0
+                    mov [ebx+04],0
+                    mov [ecx+item0+item_unfrozen],0
+                            imul ecx,itemsize
+                            imul ebp,vehiclesize
+                              mov eax,[ebp+vehicle0+vehicle_x]
+                                mov [ecx+item0+item_x],eax
+                              mov eax,[ebp+vehicle0+vehicle_y]
+                                mov [ecx+item0+item_y],eax
+                              //fld [ebp+vehicle0+vehicle_y]
+                              //fld1
+                              //faddp
+                              //fstp [ecx+item0+item_y]
+                              mov eax,[ebp+vehicle0+vehicle_z]
+                                mov [ecx+item0+item_z],eax
+                          or [ebx+human_controls],#64
+                 add esp,C}
+                           mov [mygame_arena_players+edx*4],eax
+              pop edx
+              pop ecx
+              pop eax
+           inc edx
+   label(roundframe_arena_loop_next)
+   roundframe_arena_loop_next:
+ add eax,myplayer_size
+ //loop roundframe_arena_loop
+   dec ecx
+   cmp ecx,0
+   jg roundframe_arena_loop
+
+    mov eax,[mygame_bounds_initial]
+    mov [mygame_bounds_inner],eax
+    mov [mygame_bounds_outer],eax
+      mov eax,[mygame_bounds_initial+4]
+      mov [mygame_bounds_inner+4],eax
+      mov [mygame_bounds_outer+4],eax
+    mov eax,[mygame_bounds_initial+8]
+    mov [mygame_bounds_inner+8],eax
+    mov [mygame_bounds_outer+8],eax
+      mov eax,[mygame_bounds_initial+C]
+      mov [mygame_bounds_inner+C],eax
+      mov [mygame_bounds_outer+C],eax
+
+label(roundframe_arena_skip)
+roundframe_arena_skip:
+
+
+
+//-- update the boundaries ------
+
+
+mov eax,[timer1]
+cmp [mygame_wave_next],eax
+  jl newbounds_skip
+  jg newbounds_expand
+cmp [mygame_wave_current],0
+  je newbounds_expand
+
+  push mygame_bounds_name
+   mov edx,mymessages
+   add dx,[mymessages+msg_timesup*2]
+   push edx
+  push tmpstring
+  call dword ptr [sprintffunc]
+  add esp,C
+    mov esi,tmpstring
+    call printmsg
+
+
+//expansion
+
+label(newbounds_expand)
+newbounds_expand:
+
+cmp [mygame_wave_expanded],0
+jne expandbounds_skip
+
+mov ecx,C
+xor ebx,ebx
+xor edx,edx
+label(expandbounds_loop)
+expandbounds_loop:
+
+  fld  [mygame_bounds_inner+ecx]
+  fsub [mygame_bounds_outer+ecx]
+    fld  [mygame_bounds_tolerance]
+    fcomip st(0),st(1)
+    seta bl
+    add edx,ebx
+  call fsign
+  fmul [mygame_bounds_speed]
+  fadd [mygame_bounds_outer+ecx]
+  fstp [mygame_bounds_outer+ecx]
+
+sub ecx,4
+cmp ecx,0
+jge expandbounds_loop
+
+cmp edx,4
+sete [mygame_wave_expanded]
+
+jmp newbounds_skip
+
+label(expandbounds_skip)
+expandbounds_skip:
+
+
+
+//new wave
+
+cmp [mygame_state],1
+  jne newbounds_skip
+cmp [mygame_wave_final],1
+  je newbounds_skip
+cmp [mygame_wave_expanded],0
+  je newbounds_skip
+
+
+//determine the new zone boundaries
+
+//size multiplier
+
+  push 5
+    fild [esp]
+    fstp [esp]
+  push 3
+    fild [esp]
+    fstp [esp]
+  call frand
+  //add esp,8
+  add esp,4
+  fstp [esp]
+
+ push eax
+ push eax
+  fld  [mygame_bounds_inner+8]
+  fsub [mygame_bounds_inner+0]
+  fdiv [esp+8]
+   fst [esp+4]
+    fstp [esp+0]
+{    fld  [mygame_bounds_inner+C]
+    fsub [mygame_bounds_inner+4]
+    fdiv [esp+8]
+    fstp [esp+0]}
+
+//resize
+ fld  [mygame_bounds_inner+8]
+ fsub [esp+4]
+ fstp [mygame_bounds_inner+8]
+//translate
+   call frand1
+     fmul [esp+4]
+     fadd [mygame_bounds_inner+0]
+     fstp [mygame_bounds_inner+0]
+
+//resize
+ fld  [mygame_bounds_inner+C]
+ fsub [esp+0]
+ fstp [mygame_bounds_inner+C]
+//translate
+   call frand1
+     fmul [esp+0]
+     fadd [mygame_bounds_inner+4]
+     fstp [mygame_bounds_inner+4]
+
+  //add some value to prevent getting stuck in the endgame
+    push 25
+      fld [mygame_bounds_inner+0]
+       fiadd [esp]
+        fstp [mygame_bounds_inner+0]
+      fld [mygame_bounds_inner+4]
+       fiadd [esp]
+        fstp [mygame_bounds_inner+4]
+      fld [mygame_bounds_inner+8]
+       fisub [esp]
+        fstp [mygame_bounds_inner+8]
+      fld [mygame_bounds_inner+C]
+       fisub [esp]
+        fstp [mygame_bounds_inner+C]
+    add esp,4
+
+
+              fld [mygame_bounds_inner+C]
+                sub esp,8
+                  fstp qword ptr [esp]
+              fld [mygame_bounds_inner+8]
+                sub esp,8
+                  fstp qword ptr [esp]
+              fld [mygame_bounds_inner+4]
+                sub esp,8
+                  fstp qword ptr [esp]
+              fld [mygame_bounds_inner+0]
+                sub esp,8
+                  fstp qword ptr [esp]
+              push 1
+             push mydata+F0
+            call dword ptr [printffunc]
+            add esp,28
+
+
+//---  correct for nearest buildings -------------
+
+push 1
+push 0
+call irand //bias ([top-left,bottom-right] vs [bottom-left,top-right])
+//add esp,8
+mov esi,edx
+  imul esi,8 //p1x = 0
+  add esi,4  //p1z = 4+bias*8   (esi)
+not edx
+and edx,1
+mov edi,edx
+  imul edi,8 //p2x = 8
+  add edi,4  //p2z = 4+(1-bias)*8   (edi)
+
+//sub esp,8
+sub esp,10
+mov [esp+C],460CA000 //min_dist1
+mov [esp+8],FFFFFFFF //building1
+mov [esp+4],460CA000 //min_dist2
+mov [esp+0],FFFFFFFF //building2
+
+
+mov ecx,0
+label(newbounds_buildings)
+newbounds_buildings:          //for each building
+
+
+  fld [buildingdata+ecx+8]
+  fsub [mygame_bounds_inner+0]
+    ftst
+    fstsw ax
+    sahf
+      fabs
+      fstp [esp+10]
+   jb newbounds_buildings_p2 //if( dx# = (building[p2x] - bounds[p1x]) &gt; 0 ){
+
+   mov ebx,ecx
+   add ebx,edi
+  fld [buildingdata+ebx]
+  fsub [mygame_bounds_inner+esi]
+      cmp esi,4
+      je newbounds_buildings_p1_bias0
+        fchs
+      label(newbounds_buildings_p1_bias0)
+      newbounds_buildings_p1_bias0:
+    ftst
+    fstsw ax
+    sahf
+      fabs
+      fstp [esp+14]
+   jb newbounds_buildings_p2 //if( (dy# = (building[p2z] - bounds[p1z])*(-1)*bias) &gt; 0 ){
+
+    fld  [esp+10]
+    fadd [esp+14] //d1# = abs(dx)+abs(dy);
+    fld [esp+C]
+    fcomip st(0), st(1)
+    jb newbounds_buildings_p2p  //if(d1 &lt; min_dist1){
+
+    fstp [esp+C]     // min_dist1 = d1;
+    mov [esp+8],ecx  // building1 = building; }}}
+
+
+
+  jmp newbounds_buildings_p2
+label(newbounds_buildings_p2p)
+newbounds_buildings_p2p:
+  fstp st(0)
+label(newbounds_buildings_p2)
+newbounds_buildings_p2:
+
+
+
+
+  fld [buildingdata+ecx+0]
+  fsub [mygame_bounds_inner+8]
+    ftst
+    fstsw ax
+    sahf
+      fabs
+      fstp [esp+10]
+   ja newbounds_buildings_next //if( dx# = (building[p1x] - bounds[p2x]) &lt; 0 ){
+
+   mov ebx,ecx
+   add ebx,esi
+  fld [buildingdata+ebx]
+  fsub [mygame_bounds_inner+edi]
+      cmp esi,4
+      je newbounds_buildings_p2_bias0
+        fchs
+      label(newbounds_buildings_p2_bias0)
+      newbounds_buildings_p2_bias0:
+    ftst
+    fstsw ax
+    sahf
+      fabs
+      fstp [esp+14]
+   ja newbounds_buildings_next //if( (dy# = (building[p1z] - bounds[p2z])*(-1)*bias) &lt; 0 ){
+
+    fld  [esp+10]
+    fadd [esp+14] //d2# = abs(dx)+abs(dy);
+    fld [esp+4]
+    fcomip st(0), st(1)
+    jb newbounds_buildings_nextp  //if(d2 &lt; min_dist2){
+
+    fstp [esp+4]     // min_dist2 = d2;
+    mov [esp+0],ecx  // building2 = building }}}
+
+
+
+label(newbounds_buildings_nextp)
+newbounds_buildings_nextp:
+  fstp st(0)
+label(newbounds_buildings_next)
+newbounds_buildings_next:
+  add ecx,buildingsize
+  cmp ecx,buildingsize*buildingcount
+jl newbounds_buildings
+
+
+mov eax,[esp+8]
+  mov ebx,[eax+buildingdata+0]
+   mov [mygame_bounds_inner+0],ebx
+  mov ebx,[eax+buildingdata+esi]
+   mov [mygame_bounds_inner+esi],ebx
+mov eax,[esp+0]
+     mov ecx,0
+     mov edx,1
+      //mov ebx,[mygame_bounds_inner+esi]
+       //cmp [eax+buildingdata+edi],ebx
+      fld [mygame_bounds_inner+esi]
+      fld [eax+buildingdata+edi]
+      fcomip st(0),st(1)
+      fstp st(0)
+       cmovb ecx,edx
+         cmp esi,4
+         je newbounds_final_bias0
+           not ecx
+           and ecx,edx
+         label(newbounds_final_bias0)
+         newbounds_final_bias0:
+      //mov ebx,[mygame_bounds_inner+0]
+      // cmp [eax+buildingdata+8],ebx
+      fld [mygame_bounds_inner+0]
+      fld [eax+buildingdata+8]
+      fcomip st(0),st(1)
+      fstp st(0)
+       cmovb ecx,edx
+      cmp ecx,0
+       je newbounds_final_skip
+           mov eax,[esp+8]
+           mov [esp+0],eax
+           //mov [mygame_wave_final],1
+   label(newbounds_final_skip)
+   newbounds_final_skip:
+  mov ebx,[eax+buildingdata+8]
+   mov [mygame_bounds_inner+8],ebx
+  mov ebx,[eax+buildingdata+edi]
+   mov [mygame_bounds_inner+edi],ebx
+
+   cmp eax,[esp+8]
+   sete [mygame_wave_final]
+
+//------------------------------
+
+
+inc [mygame_wave_current]
+mov [mygame_wave_expanded],0
+mov eax,[timer1]
+sub eax,[wave_duration]
+mov [mygame_wave_next],eax
+
+   mov edx,[esp+0]
+   add edx,buildingdata+2C
+   push edx
+     mov edx,[esp+C]
+     add edx,buildingdata+2C
+     push edx
+   mov edx,mymessages
+        mov eax,[mygame_wave_final]
+        imul eax,msg_s-msg_square
+        add eax,msg_square
+   //add dx,[mymessages+msg_square*2]
+   add dx,[mymessages+eax*2]
+   push edx
+  push mygame_bounds_name
+  call dword ptr [sprintffunc]
+  //add esp,10
+
+   push mygame_bounds_name
+     mov eax,[wave_duration]
+     mov ebx,cycles_per_minute
+     mov edx,0
+     div ebx
+     push eax
+   mov edx,mymessages
+   add dx,[mymessages+msg_timeleft*2]
+   push edx
+  push tmpstring2
+  call dword ptr [sprintffunc]
+  //add esp,10
+
+      mov esi,tmpstring2
+      call printmsg
+
+         mov eax,[timer1]
+         sub eax,#800
+         mov [mygame_msg_repeat],eax
+
+              fld [mygame_bounds_inner+C]
+                sub esp,8
+                  fstp qword ptr [esp]
+              fld [mygame_bounds_inner+8]
+                sub esp,8
+                  fstp qword ptr [esp]
+              fld [mygame_bounds_inner+4]
+                sub esp,8
+                  fstp qword ptr [esp]
+              fld [mygame_bounds_inner+0]
+                sub esp,8
+                  fstp qword ptr [esp]
+              push 2
+             push mydata+F0
+            call dword ptr [printffunc]
+            add esp,28
+
+
+add esp,44 //C+18+10+10
+
+label(newbounds_skip)
+newbounds_skip:
+
+
+
+
+//-- update the markers ---------
+{
+mov eax,[bounds_marker_inner]
+
+push #130
+fild [esp]
+fstp [eax+item0+item_y]
+
+  mov edx,[timer1]
+  and edx,#16
+  shr edx,2
+    lea ecx,[eax+item0+item_x]
+    add ecx,edx
+    add ecx,edx
+  mov ebx,4
+  sub ebx,edx
+
+  fild [timer1]
+    //fdiv [esp]
+    fldpi
+    fdivp
+  fsin
+  fabs
+  fstp [esp]
+
+  fld  [mygame_bounds_inner+8+edx]
+  fsub [mygame_bounds_inner+0+edx]
+  fmul [esp]
+  fadd [mygame_bounds_inner+0+edx]
+  fstp [ecx]
+
+    sub ecx,edx
+    sub ecx,edx
+  mov edx,[timer1]
+  and edx,8
+  //shr edx,1
+    add ecx,ebx
+    add ecx,ebx
+  fld [mygame_bounds_inner+edx+ebx]
+  fstp [ecx]
+
+add esp,4
+}
+
+//-------------------------------
+
+//iterate through my player registry
+
+mov ebx,0
+mov ecx,[myplayers_total]
+label(roundframe_players_loop)
+roundframe_players_loop:
+
+  cmp [ebx+myplayer0+myplayer_alive],0
+  je roundframe_players_loop_skip
+
+  mov eax,[ebx+myplayer0+myplayer_human]
+
+
+  //check if in bounds
+
+    mov [eax+human_bleeding],3
+
+    {cmp [mygame_state],1
+      sete dh}
+    cmp [mygame_state],0
+      setne dh
+    //mov ebp,nozone  //doesn't compile right
+    mov ebp,#5000
+         cmp [mygame_state],2
+          jne roundframe_players_noarena
+             mov ebp,#2500
+          label(roundframe_players_noarena)
+          roundframe_players_noarena:
+    cmp [timer1],ebp
+      setl dl
+    cmp dx,101
+      je roundframe_players_skipbounds
+
+    fld [eax+human_y]
+     fld [mygame_sealevel]
+     fcomip st(1)
+      ja roundframe_players_skipbounds
+     fstp st(0)
+
+    fld [eax+human_x]
+     fld [mygame_bounds_outer+0]
+     fcomip st(1)
+      ja roundframe_players_skipbounds
+     fld [mygame_bounds_outer+8]
+     fcomip st(1)
+      jb roundframe_players_skipbounds
+     fstp st(0)
+    fld [eax+human_z]
+     fld [mygame_bounds_outer+4]
+     fcomip st(1)
+      ja roundframe_players_skipbounds
+     fld [mygame_bounds_outer+C]
+     fcomip st(1)
+      jb roundframe_players_skipbounds
+
+     mov edx,[ebx+myplayer0+myplayer_bleeding]
+     mov [eax+human_bleeding],edx
+
+    label(roundframe_players_skipbounds)
+    roundframe_players_skipbounds:
+    fstp st(0)
+
+
+  //check if a player died in a way I haven't thought of
+
+  cmp [eax+human_health],-5
+    jle roundframe_players_loop_registerdeath
+
+  jmp roundframe_players_loop_skip
+
+  label(roundframe_players_loop_registerdeath)
+  roundframe_players_loop_registerdeath:
+
+  push eax
+  push ebx
+  push ecx
+    mov esi,[eax-human0]
+    push FFFFFFFF
+    push FFFFFFFF
+    push msg_died
+    call registerdeath
+    add esp,C
+  pop ecx
+  pop ebx
+  pop eax
+
+ label(roundframe_players_loop_skip)
+ roundframe_players_loop_skip:
+
+add ebx,myplayer_size
+//loop roundframe_players_loop
+  dec ecx
+  cmp ecx,0
+  jg roundframe_players_loop
+
+label(roundframe_players_skip)
+roundframe_players_skip:
+
+
+mov eax,[mygame_newtimer]
+cmp eax,FFFFFFFF
+je roundframe_skipnewtimer
+   mov [esp+C],eax
+   mov [mygame_newtimer],FFFFFFFF
+label(roundframe_skipnewtimer)
+roundframe_skipnewtimer:
+
+popfd
+popad
+
+originalcode_roundframe:
+mov [subrosadedicated025b.exe+D4F9964],ebp
+
+exit_roundframe:
+jmp returnhere_roundframe
+
+subrosadedicated025b.exe+5DDA7:
+jmp newmem_roundframe
+nop
+returnhere_roundframe:
+
+
+
+
+//------ on game cycle when the round hasn't started yet ---------------------
+
+
+alloc(newmem_roundstarting,512)
+label(returnhere_roundstarting)
+label(originalcode_roundstarting)
+label(exit_roundstarting)
+
+newmem_roundstarting:
+
+
+ cmp edx,#3000
+   jg originalcode_roundstarting
+ cmp edx,#1860
+   jl originalcode_roundstarting
+  pushad
+
+     cmp edx,744
+      jne roundstarting_motd_skip
+            push msg__r
+            push msg__motd
+            call dword ptr [fopenfunc]
+                 push eax
+                 push 2047
+                 push 1
+                 push tmpstring
+                 call dword ptr [freadfunc]
+                mov byte [tmpstring+eax],0
+              push [esp+C]
+              call dword ptr [fclosefunc]
+        add esp,1C
+            mov esi,tmpstring
+            call printmsg
+     label(roundstarting_motd_skip)
+     roundstarting_motd_skip:
+
+   mov ecx,playercap
+    xor eax,eax
+    xor ebx,ebx
+    xor edx,edx
+    xor ebp,ebp
+     label(roundstarting_players)
+     roundstarting_players:
+        cmp [ebx+player0],0
+          je roundstarting_players_next
+        cmp [ebx+player0+player_team],0
+          sete al
+          add edx,eax
+        inc ebp
+        cmp ebp,[playercount]
+        jge roundstarting_check
+       label(roundstarting_players_next)
+       roundstarting_players_next:
+     add ebx,playersize
+     loop roundstarting_players
+         label(roundstarting_check)
+         roundstarting_check:
+       cmp edx,minplayers
+        jge roundstarting_skip
+                mov [esp+14],waitingtime
+                call minplayersmsg
+   label(roundstarting_skip)
+   roundstarting_skip:
+  popad
+
+
+originalcode_roundstarting:
+mov [subrosadedicated025b.exe+D4F9964],edx
+
+exit_roundstarting:
+jmp returnhere_roundstarting
+
+"subrosadedicated025b.exe"+5D8DD:
+jmp newmem_roundstarting
+nop
+returnhere_roundstarting:
+
+
+//--- disable jumping to 00:30 to make the previous thing work -----
+
+alloc(newmem_everyoneready,128)
+label(returnhere_everyoneready)
+label(originalcode_everyoneready)
+label(exit_everyoneready)
+
+newmem_everyoneready:
+
+originalcode_everyoneready:
+//mov [subrosadedicated025b.exe+D4F9964],00000744
+
+exit_everyoneready:
+jmp returnhere_everyoneready
+
+"subrosadedicated025b.exe"+5D90F:
+jmp newmem_everyoneready
+nop
+nop
+nop
+nop
+nop
+returnhere_everyoneready:
+
+
+//----- blank mission hack ------------------------
+
+alloc(newmem_mt,512)
+label(returnhere_mt)
+label(originalcode_mt)
+label(exit_mt)
+
+newmem_mt:
+
+mov eax,06
+mov ecx,07
+
+originalcode_mt:
+mov [esi+subrosadedicated025b.exe+D4F9A60],eax
+
+exit_mt:
+jmp returnhere_mt
+
+subrosadedicated025b.exe+5B3E7:
+jmp newmem_mt
+nop
+returnhere_mt:
+
+
+//----- guns and some other stuff ------
+
+//  custom mag capacity
+
+  //I've made this before I discovered the item type struct.
+  //Might as well leave it like that in case if we'll need
+  //some kind of custom functionality.
+
+alloc(newmem_ammocap,256)
+label(returnhere_ammocap)
+label(originalcode_ammocap)
+label(exit_ammocap)
+
+newmem_ammocap:
+
+push ebx
+mov bl,[ammotable+edi]
+cmp bl,00
+pop ebx
+je originalcode_ammocap
+
+mov al,[ammotable+edi]
+
+originalcode_ammocap:
+mov [esi+subrosadedicated025b.exe+D5217E0],eax
+
+exit_ammocap:
+jmp returnhere_ammocap
+
+subrosadedicated025b.exe+1C544:
+jmp newmem_ammocap
+nop
+returnhere_ammocap:
+
+
+//  prevent the arm function from spawning 'ammo' for regular items
+
+alloc(newmem_armhack,64)
+label(returnhere_armhack)
+label(originalcode_armhack)
+label(exit_armhack)
+
+newmem_armhack:
+
+cmp esi,0c
+jl originalcode_armhack
+sub esp,10
+jmp subrosadedicated025b.exe+29D8A
+
+originalcode_armhack:
+call subrosadedicated025b.exe+1C3B0
+{subrosadedicated025b.exe+29D7F - push 01
+subrosadedicated025b.exe+29D81 - push edi
+subrosadedicated025b.exe+29D82 - push -01
+subrosadedicated025b.exe+29D84 - push eax
+subrosadedicated025b.exe+29D85 - call subrosadedicated025b.exe+1D630
+}
+
+exit_armhack:
+jmp returnhere_armhack
+
+subrosadedicated025b.exe+29D7A:
+jmp newmem_armhack
+returnhere_armhack:
+
+
+//  make burgers restore health
+
+alloc(newmem_burger,2048)
+label(returnhere_burger)
+label(originalcode_burger)
+label(exit_burger)
+
+newmem_burger:
+
+cmp [eax+human0+human_health],#75
+jge originalcode_burger
+add [eax+human0+human_health],burger_health
+
+originalcode_burger:
+add dword ptr [eax+subrosadedicated025b.exe+15CE9F4],08
+
+exit_burger:
+jmp returnhere_burger
+
+subrosadedicated025b.exe+4E881:
+jmp newmem_burger
+nop
+nop
+returnhere_burger:
+
+
+
+//  handle picking up items
+
+alloc(newmem_pickup,512)
+label(returnhere_pickup)
+label(originalcode_pickup)
+label(exit_pickup)
+
+newmem_pickup:
+
+cmp eax,FFFFFFFF
+  jne originalcode_pickup
+cmp ebx,1
+  jne pickup_skipedxcheck
+cmp edx,0                      // this part might be glitchy
+  je originalcode_pickup
+cmp [esp+8],0
+  je originalcode_pickup
+label(pickup_skipedxcheck)
+pickup_skipedxcheck:
+
+  pushad
+        mov eax,ebp
+        imul eax,humansize
+                  cmp eax,[helicopterpilot]
+                   je pickup_ret
+        //remove the parachute indicator
+        cmp [eax+human0+human_health],#101
+        jl pickup_np
+          dec [eax+human0+human_health]
+          mov [eax+human0+human_hand1+8],#90000
+        label(pickup_np)
+        pickup_np:
+                cmp [eax+human0+human_hand1+4],edi
+                 je pickup_ret
+    push 0
+    push ebp
+     mov eax,0
+     mov ax,[mymessages+msg_pickup*2]
+     add eax,mymessages
+     push eax
+    push 1
+    call msgfunc//+5
+    add esp,10
+        label(pickup_ret)
+        pickup_ret:
+  popad
+
+originalcode_pickup:
+cmp eax,-01
+je subrosadedicated025b.exe+1D7B1
+
+exit_pickup:
+jmp returnhere_pickup
+
+subrosadedicated025b.exe+1D79B:
+jmp newmem_pickup
+returnhere_pickup:
+
+
+
+
+//-- a bullet stat hack to distinguish between MP5, Uzi and 9mm --
+
+alloc(newmem_bullet0C,128)
+label(returnhere_bullet0C)
+label(originalcode_bullet0C)
+label(exit_bullet0C)
+
+newmem_bullet0C:
+
+pushad
+push eax
+push 10000
+fst [esp+4]
+cmp [esp+4],3C03126F
+jne bullet0C_skip
+  fstp st(0)
+  fild [ebp-3C] //[ebp-item_x+item_type]
+  fidiv [esp]
+  fadd [esp+4]
+ label(bullet0C_skip)
+ bullet0C_skip:
+add esp,8
+popad
+
+originalcode_bullet0C:
+fstp dword ptr [esi+subrosadedicated025b.exe+140C60C]
+
+exit_bullet0C:
+jmp returnhere_bullet0C
+
+subrosadedicated025b.exe+1553E:
+jmp newmem_bullet0C
+nop
+returnhere_bullet0C:
+
+
+//---- death control ---------------------------
+
+// fall damage
+
+alloc(newmem_falldmg,512)
+label(returnhere_falldmg)
+label(originalcode_falldmg)
+label(exit_falldmg)
+
+newmem_falldmg:
+
+pushad
+
+call falldmg_check
+cmp eax,1
+je falldmg_skip
+
+call searchmyplayer
+cmp eax,FFFFFFFF
+je falldmg_skip
+
+    mov edx,[timer1]
+    add edx,#450
+    cmp [eax+myplayer_lastweapon],subrosadedicated025b.exe+150C9FC8 //magnum name
+     jne falldmg_notshot
+    cmp edx,[eax+myplayer_lastgotshot]
+     jl falldmg_notshot
+         mov ebx,eax
+         call registergettingshot
+         jmp falldmg_apply
+      jmp falldmg_skip
+    label(falldmg_notshot)
+    falldmg_notshot:
+
+push esi
+
+push FFFFFFFF
+push FFFFFFFF
+push msg_fall
+call registerdeath
+add esp,C
+
+pop esi
+
+label(falldmg_apply)
+falldmg_apply:
+add dword ptr [esi+human0+human_health],-78
+
+label(falldmg_skip)
+falldmg_skip:
+
+popad
+
+originalcode_falldmg:
+//add dword ptr [esi+subrosadedicated025b.exe+15CEA14],-78
+
+exit_falldmg:
+jmp returnhere_falldmg
+
+subrosadedicated025b.exe+54101:
+jmp newmem_falldmg
+nop
+nop
+returnhere_falldmg:
+
+
+//  getting run over
+
+alloc(newmem_cardmg,512)
+label(returnhere_cardmg)
+label(originalcode_cardmg)
+label(exit_cardmg)
+
+newmem_cardmg:
+
+pushad
+pushfd
+
+call falldmg_check
+cmp eax,1
+je cardmg_skip
+
+push esi
+
+mov eax,[esp+34]
+mov esi,[eax+vehicle0+vehicle_lastdriver]
+cmp esi,FFFFFFFF
+je cardmg_bot
+
+//imul esi,humansize
+imul esi,playersize
+mov esi,[esi+player0+player_human]
+imul esi,humansize
+
+cmp esi,[esp]
+je cardmg_bot
+
+call searchmyplayer
+cmp eax,FFFFFFFF
+ je cardmg_bot
+
+          inc [eax+myplayer_frags]
+          add [eax+myplayer_prize],prize_kill
+          mov ebx,[eax+myplayer_player]
+          add [ebx+player_cash],prize_kill
+
+//pop esi
+mov esi,[esp]
+push FFFFFFFF
+//push FFFFFFFF
+push [eax+myplayer_name]
+push msg_runoverby
+call registerdeath
+add esp,C
+
+jmp cardmg_return
+
+label(cardmg_bot)
+cardmg_bot:
+
+//pop esi
+mov esi,[esp]
+push FFFFFFFF
+push FFFFFFFF
+push msg_runover
+call registerdeath
+add esp,C
+
+label(cardmg_return)
+cardmg_return:
+
+pop esi
+add dword ptr [esi+subrosadedicated025b.exe+15CEA14],-78
+
+label(cardmg_skip)
+cardmg_skip:
+
+popfd
+popad
+
+originalcode_cardmg:
+//add dword ptr [esi+subrosadedicated025b.exe+15CEA14],-78
+
+exit_cardmg:
+jmp returnhere_cardmg
+
+subrosadedicated025b.exe+549B2:
+jmp newmem_cardmg
+nop
+nop
+returnhere_cardmg:
+
+
+
+//  bleeding out
+
+alloc(newmem_bleed,512)
+label(returnhere_bleed)
+label(originalcode_bleed)
+label(exit_bleed)
+
+newmem_bleed:
+
+ cmp eax,-5
+ jg bleed_alive
+
+ pushad
+  call searchmyplayer
+  cmp eax,FFFFFFFF
+  je bleed_skip
+    mov edx,[timer1]
+    add edx,#850
+    cmp edx,[eax+myplayer_lastgotshot]
+    jl bleed_notshot
+         mov ebx,eax
+         call registergettingshot
+      jmp bleed_skip
+    label(bleed_notshot)
+    bleed_notshot:
+  push FFFFFFFF
+  push FFFFFFFF
+  push msg_bledout
+    cmp [esi+human0+human_bleeding],3
+    jne bleed_inside
+      mov [esp],msg_outside
+    label(bleed_inside)
+    bleed_inside:
+  call registerdeath
+  add esp,C
+     label(bleed_skip)
+     bleed_skip:
+ popad
+ jmp originalcode_bleed
+
+label(bleed_alive)
+bleed_alive:
+
+      cmp [esi+human0+human_bleeding],3
+        jne originalcode_bleed
+      cmp eax,0
+       jl originalcode_bleed
+      sub eax,outsidezone_dmg
+                  cmp [mygame_state],2
+                    jne originalcode_bleed
+                  cmp eax,#25
+                   jl originalcode_bleed
+                     sub eax,outsidezone_dmg
+                     sub eax,outsidezone_dmg
+                     sub eax,outsidezone_dmg
+
+originalcode_bleed:
+
+mov [esi+subrosadedicated025b.exe+15CEA14],eax
+
+exit_bleed:
+jmp returnhere_bleed
+
+subrosadedicated025b.exe+55AFD:
+jmp newmem_bleed
+nop
+returnhere_bleed:
+
+
+
+//  bullet wounds
+
+alloc(newmem_shotdmg,512)
+label(returnhere_shotdmg)
+label(originalcode_shotdmg)
+label(exit_shotdmg)
+
+newmem_shotdmg:
+
+cmp [gamestate],1
+cmove ebp,[subrosadedicated025b.exe+BA2DE70]
+je originalcode_shotdmg
+
+pushad
+
+    cmp [esi+bullet0],3
+    jne shotdmg_notmagnum
+     //push 3E19999A //0.15
+     //push 3D75C28F //0.06
+     push 3DA3D70A //0.09
+       fld [esi+bullet0+bullet_vx]
+       fmul [esp]
+       fadd [ebx+human0+EC]
+       fstp [ebx+human0+EC]
+         fld [esi+bullet0+bullet_vy]
+         fadd st(0),st(0)
+         fabs
+         fmul [esp]
+         fadd [ebx+human0+F0]
+         fstp [ebx+human0+F0]
+       fld [esi+bullet0+bullet_vz]
+       fmul [esp]
+       fadd [ebx+human0+F4]
+       fstp [ebx+human0+F4]
+                            mov [ebx+human0+human_carid],-1
+     pop eax
+    label(shotdmg_notmagnum)
+    shotdmg_notmagnum:
+
+//push ecx
+mov esi,ebx
+call searchmyplayer
+//pop ecx
+//mov ecx,[esp+18]
+
+cmp eax,FFFFFFFF
+ je shotdmg_skip
+cmp [eax+myplayer_alive],0
+ je shotdmg_skip
+
+push eax
+  mov ecx,[esp+8]
+  mov ecx,[ecx+bullet0+bullet_player]
+  //imul esi,ecx,humansize
+  imul ecx,playersize
+  mov ecx,[ecx+player0+player_human]
+    cmp ecx,FFFFFFFF
+    mov eax,FFFFFFFF
+      je shotdmg_searchattacker_skip
+  imul esi,ecx,humansize
+call searchmyplayer
+    label(shotdmg_searchattacker_skip)
+    shotdmg_searchattacker_skip:
+pop ebx
+
+mov ecx,[timer1]
+mov [ebx+myplayer_lastgotshot],ecx
+mov [ebx+myplayer_lastkiller],eax
+
+   mov edx,[esp+4]
+      {mov edi,[edx+bullet0+bullet_player]
+     imul edi,humansize
+      mov [ebx+myplayer_lastkiller],edi}
+    mov edx,[edx+bullet0+0C]
+       mov ecx,5
+       label(shotdmg_bullet0C)
+       shotdmg_bullet0C:
+             mov eax,[bullet0Ctable+ecx*4]
+             cmp edx,eax
+             je shotdmg_bullet0C_break
+       loop shotdmg_bullet0C
+       label(shotdmg_bullet0C_break)
+       shotdmg_bullet0C_break:
+     imul ecx,2*itemtypesize
+     lea edx,[ecx+itemtype0+itemtype_name]
+    mov [ebx+myplayer_lastweapon],edx
+
+//mov edx,[esi+human0+human_health]
+mov edx,[esp+10]
+mov edx,[edx+human0+human_health]
+sub edx,ebp
+cmp edx,-5
+jg shotdmg_skip
+
+//push [esp+4]
+
+
+call registergettingshot
+//add esp,4
+
+label(shotdmg_skip)
+shotdmg_skip:
+
+popad
+
+originalcode_shotdmg:
+sub [ebx+subrosadedicated025b.exe+15CEA14],ebp
+
+exit_shotdmg:
+jmp returnhere_shotdmg
+
+subrosadedicated025b.exe+4AA99:
+jmp newmem_shotdmg
+nop
+returnhere_shotdmg:
+
+
+
+//-- bleeding state change --
+
+//on
+
+alloc(newmem_bleeding1,512)
+label(returnhere_bleeding1)
+label(originalcode_bleeding1)
+label(exit_bleeding1)
+
+newmem_bleeding1:
+
+pushad
+mov esi,ebx
+call searchmyplayer
+  cmp eax,FFFFFFFF
+  je bleeding1_skip
+mov [eax+myplayer_bleeding],1
+  label(bleeding1_skip)
+  bleeding1_skip:
+popad
+
+or [ebx+subrosadedicated025b.exe+15D1528],1
+
+originalcode_bleeding1:
+//mov [ebx+subrosadedicated025b.exe+15D1528],00000001
+
+exit_bleeding1:
+jmp returnhere_bleeding1
+
+subrosadedicated025b.exe+4AAB0:
+jmp newmem_bleeding1
+nop
+nop
+nop
+nop
+nop
+returnhere_bleeding1:
+
+//off
+
+alloc(newmem_bleeding0,512)
+label(returnhere_bleeding0)
+label(originalcode_bleeding0)
+label(exit_bleeding0)
+
+newmem_bleeding0:
+
+pushad
+mov esi,eax
+call searchmyplayer
+  cmp eax,FFFFFFFF
+  je bleeding0_skip
+mov [eax+myplayer_bleeding],0
+  label(bleeding0_skip)
+  bleeding0_skip:
+popad
+
+dec [ebx+subrosadedicated025b.exe+15D1528]
+
+originalcode_bleeding0:
+//mov [eax+subrosadedicated025b.exe+15D1528],edx
+
+exit_bleeding0:
+jmp returnhere_bleeding0
+
+subrosadedicated025b.exe+4E963:
+jmp newmem_bleeding0
+nop
+returnhere_bleeding0:
+
+
+//-- player exited --
+
+alloc(newmem_exited,512)
+label(returnhere_exited)
+label(originalcode_exited)
+label(exit_exited)
+
+newmem_exited:
+
+pushfd
+pushad
+
+cmp [gamestate],2
+jne exited_skip
+
+mov [eax+human0+human_health],-5
+
+mov esi,eax
+call searchmyplayer
+
+push FFFFFFFF
+push FFFFFFFF
+push FFFFFFFF
+call registerdeath
+add esp,C
+
+label(exited_skip)
+exited_skip:
+popad
+popfd
+
+originalcode_exited:
+mov [eax+subrosadedicated025b.exe+15CE9E8],ecx
+
+exit_exited:
+jmp returnhere_exited
+
+"subrosadedicated025b.exe"+A2FE:
+jmp newmem_exited
+nop
+returnhere_exited:
+
+
+
+//--- handle removing the bullets ----
+
+{
+alloc(newmem_killbullet,512)
+label(returnhere_killbullet)
+label(originalcode_killbullet)
+label(exit_killbullet)
+
+newmem_killbullet:
+//ebp
+push eax
+  mov eax,[ebp+0C]
+  mov [subrosadedicated025b.exe+D4F9A84],eax
+pop eax
+
+originalcode_killbullet:
+je subrosadedicated025b.exe+155B8
+lea edi,[edx-04]
+
+exit_killbullet:
+jmp returnhere_killbullet
+
+subrosadedicated025b.exe+155A0:
+jmp newmem_killbullet
+returnhere_killbullet:
+}
+
+//---- remove the friendly fire penalty --------
+
+"subrosadedicated025b.exe"+17ADF:
+db 90 90 90 90 90 90
+
+"subrosadedicated025b.exe"+17A80:
+db 90 90 90 90 90 90
+
+//---- team switching stuff ---------------------
+
+//disable oxs
+subrosadedicated025b.exe+57A5B:
+db 00
+
+//disable monsota
+alloc(newmem_teamswitchmons,24)
+label(returnhere_teamswitchmons)
+label(originalcode_teamswitchmons)
+label(exit_teamswitchmons)
+
+newmem_teamswitchmons:
+
+mov [ebx+subrosadedicated025b.exe+114EC1C4],0
+
+originalcode_teamswitchmons:
+//mov [ebx+subrosadedicated025b.exe+114EC1C4],eax
+
+exit_teamswitchmons:
+jmp returnhere_teamswitchmons
+
+subrosadedicated025b.exe+57A33:
+jmp newmem_teamswitchmons
+nop
+returnhere_teamswitchmons:
+
+
+//----- heli AI ----------------------------------
+
+{this part requires a complete rework!}
+
+alloc(newmem_drivingai,1024)
+label(returnhere_drivingai)
+label(originalcode_drivingai)
+label(exit_drivingai)
+
+newmem_drivingai:
+
+cmp [gamestate],1
+je originalcode_drivingai
+
+cmp ecx,[helicopterpilot]
+jne originalcode_drivingai
+
+pushad
+
+mov ebx,[ecx+human0+human_carid]
+imul ebx,vehiclesize
+
+push 2
+fild [esp]
+fstp [esp]
+
+//waypoint vector
+fld [helicopterwaypoint+8]
+fsub [ebx+vehicle0+vehicle_z]
+push eax
+fstp [esp]
+
+fld [helicopterwaypoint+4]
+fsub [ebx+vehicle0+vehicle_y]
+push eax
+fstp [esp]
+
+fld [helicopterwaypoint+0]
+fsub [ebx+vehicle0+vehicle_x]
+push eax
+fstp [esp]
+
+//modulus
+fld [esp+8]
+fmul [esp+8]
+push eax
+fstp [esp]
+fld [esp+4]
+fmul [esp+4]
+fadd [esp]
+fsqrt
+fstp [esp]
+
+//pitch
+
+//fld [ecx+human0+F4]
+fild [timer1]
+fdiv [esp+10]
+fdiv [esp+10]
+//fdiv [esp+10]
+//fdiv [esp+10]
+fsin
+fabs
+fdiv [esp+10]
+fdiv [esp+10]
+fdiv [esp+10]
+fdiv [esp+10]
+//fdiv [esp+10]
+//fdiv [esp+10]
+fstp dword ptr [ecx+human0+human_pitchcontrol]
+
+
+//yaw
+fstp st(0)
+
+{fld [esp+C]
+fdiv [esp]
+fchs
+fcos}
+
+fld [esp+4]
+      //fst [subrosadedicated025b.exe+D4F9A94]
+fld [esp+C]
+      //fst [subrosadedicated025b.exe+D4F9A98]
+   fchs
+fpatan
+      //fst [subrosadedicated025b.exe+D4F9A84]
+
+fld [ebx+vehicle0+44]
+fld [ebx+vehicle0+3C]
+  //fchs
+fpatan
+      //fst [subrosadedicated025b.exe+D4F9A88]
+
+//fsubrp st(1),st(0)
+fsubp st(1),st(0)
+
+    fld st(0)
+    fabs
+    //push 3F000000 //0.5
+    push 3E800000 //0.25
+    fsub [esp]
+    pop eax
+      ftst
+      fstsw ax
+      sahf
+    fstp st(0)
+    ja drivingai_steer
+      fsub st(0),st(0)
+    label(drivingai_steer)
+    drivingai_steer:
+
+call fsign
+     //fst [subrosadedicated025b.exe+D4F9A8C]
+fdiv [esp+10]
+fdiv [esp+10]
+fdiv [esp+10]
+fdiv [esp+10]
+fdiv [esp+10]
+fdiv [esp+10]
+fdiv [esp+10]
+
+fstp dword ptr [ecx+human0+human_haxis]
+
+
+//roll
+  fstp st(0)
+  fldz
+  //fld [ecx+human0+F0]
+fstp dword ptr [ecx+human0+human_rollcontrol]
+
+//height
+  fstp st(0)
+  fld [esp+8]
+  call fsign
+  //fdiv [esp+10]
+fstp dword ptr [ecx+human0+human_vaxis]
+
+fld dword ptr [edi+0C]
+fstp dword ptr [ecx+subrosadedicated025b.exe+15CEA98]
+fld dword ptr [edi+10]
+fstp dword ptr [ecx+subrosadedicated025b.exe+15CEA9C]
+fld dword ptr [edi+14]
+fstp dword ptr [ecx+subrosadedicated025b.exe+15CEAA0]
+fld dword ptr [edi+18]
+fstp dword ptr [ecx+subrosadedicated025b.exe+15CEAA4]
+
+add esp,14
+popad
+jmp subrosadedicated025b.exe+A44A
+
+originalcode_drivingai:
+fstp dword ptr [ecx+subrosadedicated025b.exe+15CEA88]
+
+{fld dword ptr [edi]
+fstp dword ptr [ecx+subrosadedicated025b.exe+15CEA8C]
+fld dword ptr [edi+04]
+fstp dword ptr [ecx+subrosadedicated025b.exe+15CEA90]
+fld dword ptr [edi+08]
+fstp dword ptr [ecx+subrosadedicated025b.exe+15CEA94]
+fld dword ptr [edi+0C]
+fstp dword ptr [ecx+subrosadedicated025b.exe+15CEA98]
+fld dword ptr [edi+10]
+fstp dword ptr [ecx+subrosadedicated025b.exe+15CEA9C]
+fld dword ptr [edi+14]
+fstp dword ptr [ecx+subrosadedicated025b.exe+15CEAA0]
+fld dword ptr [edi+18]
+fstp dword ptr [ecx+subrosadedicated025b.exe+15CEAA4]}
+
+exit_drivingai:
+jmp returnhere_drivingai
+
+subrosadedicated025b.exe+A406:
+jmp newmem_drivingai
+nop
+returnhere_drivingai:
+
+
+//--- a dirty fix for a forced round restart ------
+
+alloc(newmem_restartfix,64)
+label(returnhere_restartfix)
+label(originalcode_restartfix)
+label(exit_restartfix)
+
+newmem_restartfix:
+
+cmp eax,#1000
+jle originalcode_restartfix
+mov eax,#1000
+
+originalcode_restartfix:
+mov [subrosadedicated025b.exe+D4F9964],eax
+
+exit_restartfix:
+jmp returnhere_restartfix
+
+subrosadedicated025b.exe+5E01A:
+jmp newmem_restartfix
+returnhere_restartfix:
+
+//-- spawn newspapers instead of phones ---
+
+subrosadedicated025b.exe+5DB10:
+db 6A 1A
+subrosadedicated025b.exe+5DBC4:
+db 6A 1A
+
+//--- disable shops ---
+
+subrosadedicated025b.exe+962A:
+db 90 90 90 90 90 90 90 90 90 90
+subrosadedicated025b.exe+95E4:
+db 90 90 90 90 90 90 90 90 90 90
+subrosadedicated025b.exe+9607:
+db 90 90 90 90 90 90 90 90 90 90
+subrosadedicated025b.exe+964D:
+db 90 90 90 90 90 90 90 90 90 90
+
+
+//--- print messages to stdout -----
+
+alloc(newmem_verbose,512)
+label(returnhere_verbose)
+label(originalcode_verbose)
+label(exit_verbose)
+
+newmem_verbose:
+
+pushad
+pushfd
+    mov ebp,verbose
+    cmp ebp,1
+    jne verbose_skip
+mov ebp,[esp+4+C]
+   push [ebp+8]
+   push [ebp+10]
+   push [ebp+C]
+   push [ebp+4]
+   push mydata+22A
+   call dword ptr [printffunc]
+   add esp,14
+ label(verbose_skip)
+ verbose_skip:
+popfd
+popad
+
+originalcode_verbose:
+cmp dword ptr [subrosadedicated025b.exe+BA2DE60],00
+
+exit_verbose:
+jmp returnhere_verbose
+
+"subrosadedicated025b.exe"+63B0:
+jmp newmem_verbose
+nop
+nop
+returnhere_verbose:
+
+
+
+[DISABLE]
+
+dealloc(mydata)
+dealloc(buildingdata)
+dealloc(mycode)
+dealloc(tmpstring)
+dealloc(tmpstring2)
+
+"subrosadedicated025b.exe"+17ADF: //(friendly fire)
+mov [esi+subrosadedicated025b.exe+114EC1A0],edi
+//Alt: db 89 BE A0 C1 84 11
+
+"subrosadedicated025b.exe"+17A80: //(friendly fire)
+add [esi+subrosadedicated025b.exe+114EC1A0],eax
+//Alt: db 01 86 A0 C1 8A 12
+
+dealloc(newmem_everyoneready)
+"subrosadedicated025b.exe"+5D90F:
+mov [subrosadedicated025b.exe+D4F9964],00000744
+//Alt: db C7 05 64 99 6A 0E 44 07 00 00
+
+dealloc(newmem_roundstarting)
+"subrosadedicated025b.exe"+5D8DD:
+mov [subrosadedicated025b.exe+D4F9964],edx
+//Alt: db 89 15 64 99 6A 0E
+
+dealloc(newmem_verbose)
+"subrosadedicated025b.exe"+63B0:
+cmp dword ptr [subrosadedicated025b.exe+BA2DE60],00
+//Alt: db 83 3D 60 DE C3 0B 00
+
+dealloc(newmem_exited)
+"subrosadedicated025b.exe"+A2FE:
+mov [eax+subrosadedicated025b.exe+15CE9E8],ecx
+//Alt: db 89 88 E8 E9 7D 01
+
+dealloc(newmem_bullet0C)
+subrosadedicated025b.exe+1553E:
+fstp dword ptr [esi+subrosadedicated025b.exe+140C60C]
+//Alt: db D9 9E 0C C6 1A 02
+
+{dealloc(newmem_killbullet)
+subrosadedicated025b.exe+155A0:
+je subrosadedicated025b.exe+155B8
+lea edi,[edx-04]
+//Alt: db 74 16 8D 7A FC}
+
+dealloc(newmem_restartfix)
+subrosadedicated025b.exe+5E01A:
+mov [subrosadedicated025b.exe+D4F9964],eax
+//Alt: db A3 64 99 6E 0D
+
+dealloc(newmem_pickup)
+subrosadedicated025b.exe+1D79B:
+cmp eax,-01
+je subrosadedicated025b.exe+1D7B1
+//Alt: db 83 F8 FF 74 11
+
+subrosadedicated025b.exe+5DB10: //(phones)
+db 6A 17
+subrosadedicated025b.exe+5DBC4:
+db 6A 17
+
+subrosadedicated025b.exe+962A: //(shops)
+db C7 80 34C28712 0A000000 //mov [eax+subrosadedicated025b.exe+114EC234],0000000A { 10 }
+subrosadedicated025b.exe+95E4:
+db C7 80 34C28712 03000000 //mov [eax+subrosadedicated025b.exe+114EC234],00000003 { 3 }
+subrosadedicated025b.exe+9607:
+db C7 80 34C28712 09000000 //mov [eax+subrosadedicated025b.exe+114EC234],00000009 { 9 }
+subrosadedicated025b.exe+964D:
+db C7 80 34C28712 0D000000 //mov [eax+subrosadedicated025b.exe+114EC234],0000000D { 13 }
+
+dealloc(newmem_bleeding0)
+subrosadedicated025b.exe+4E963:
+mov [eax+subrosadedicated025b.exe+15D1528],edx
+//Alt: db 89 90 28 15 19 02
+
+dealloc(newmem_bleeding1)
+subrosadedicated025b.exe+4AAB0:
+mov [ebx+subrosadedicated025b.exe+15D1528],00000001
+//Alt: db C7 83 28 15 19 02 01 00 00 00
+
+dealloc(newmem_shotdmg)
+subrosadedicated025b.exe+4AA99:
+sub [ebx+subrosadedicated025b.exe+15CEA14],ebp
+//Alt: db 29 AB 14 EA 32 02
+
+dealloc(newmem_roundframe)
+subrosadedicated025b.exe+5DDA7:
+mov [subrosadedicated025b.exe+D4F9964],ebp
+//Alt: db 89 2D 64 99 79 0E
+
+dealloc(newmem_burger)
+subrosadedicated025b.exe+4E881:
+add dword ptr [eax+subrosadedicated025b.exe+15CE9F4],08
+//Alt: db 83 80 F4 E9 86 02 08
+
+dealloc(newmem_armhack)
+subrosadedicated025b.exe+29D7A:
+call subrosadedicated025b.exe+1C3B0
+//Alt: db E8 31 26 FF FF
+
+dealloc(newmem_drivingai)
+subrosadedicated025b.exe+A406:
+fstp dword ptr [ecx+subrosadedicated025b.exe+15CEA88]
+//Alt: db D9 99 88 EA 87 02
+
+dealloc(newmem_bleed)
+subrosadedicated025b.exe+55AFD:
+mov [esi+subrosadedicated025b.exe+15CEA14],eax
+//Alt: db 89 86 14 EA 8A 01
+
+dealloc(newmem_cardmg)
+subrosadedicated025b.exe+549B2:
+add dword ptr [esi+subrosadedicated025b.exe+15CEA14],-78
+//Alt: db 83 86 14 EA 6B 02 88
+
+dealloc(newmem_falldmg)
+subrosadedicated025b.exe+54101:
+add dword ptr [esi+subrosadedicated025b.exe+15CEA14],-78
+//Alt: db 83 86 14 EA 6B 02 88
+
+dealloc(newmem_teamswitchmons)
+subrosadedicated025b.exe+57A33:
+mov [ebx+subrosadedicated025b.exe+114EC1C4],eax
+//Alt: db 89 83 C4 C1 33 12
+
+subrosadedicated025b.exe+57A5B:
+db 02
+
+dealloc(newmem_ammocap)
+subrosadedicated025b.exe+1C544:
+mov [esi+subrosadedicated025b.exe+D5217E0],eax
+//Alt: db 89 86 E0 17 54 0E
+
+dealloc(newmem_mt)
+subrosadedicated025b.exe+5B3E7:
+mov [esi+subrosadedicated025b.exe+D4F9A60],eax
+//Alt: db 89 86 60 9A 8C 0E
+
+dealloc(newmem_roundstart)
+"subrosadedicated025b.exe"+5DD69:
+mov [subrosadedicated025b.exe+D4F9960],ebx
+//Alt: db 89 1D 60 99 8A 0E
+
+</AssemblerScript>
+    </CheatEntry>
+  </CheatEntries>
+  <UserdefinedSymbols/>
+  <LuaScript>-- see 'main.cea' for the actual implementation
+
+game = "subrosadedicated025b.exe"
+
+ if  (not openProcess(game))
+ and (not openProcess("wine ./"..game))
+ and (not openProcess("./"..game.." (wine)")) then
+  showMessage("Couldn't find a running "..game.." process!")
+ end
+
+local addressList = getAddressList()
+addressList.getMemoryRecordByDescription('main.cea').Active = true
+
+closeCE()
+</LuaScript>
+</CheatTable>

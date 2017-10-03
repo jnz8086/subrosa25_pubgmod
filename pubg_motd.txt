@@ -1,0 +1,7 @@
+Welcome to a ==PUBG-mod 0.1== server!
+Basically, this is a battle royale mode
+where you have to find a gun, kill
+everyone, and be the last man standing!
+ 
+Developed by Tony Montana (/u/jnz8086).
+Hosted by [insert your name].
