@@ -6,7 +6,7 @@ Work in progress. Windows-only, as of right now.
 
 ## Installation
 
-Copy the files into the folder with the [dedicated server](http://crypticsea.com/download/subrosadedicated025b.zip).
+Copy the files into the folder with the [dedicated server](http://crypticsea.com/download/subrosadedicated025b.zip). (or in a separate folder, doesn't make a difference)
 
 Launch subrosadedicated025b.exe.
 
@@ -17,7 +17,7 @@ Then you can either
 
 ## TODO-list
 
-- move the gameplay settings to a configuration file
+- split the code into several files
 - fix the crashes and bugs
 - do something about players getting stuck inside glass panes
 - implement an option to disable spectators

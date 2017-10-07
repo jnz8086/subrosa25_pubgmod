@@ -1,0 +1,3 @@
+[submodule "geoip/mmdblua"]
+	path = geoip/mmdblua
+	url = https://github.com/daurnimator/mmdblua

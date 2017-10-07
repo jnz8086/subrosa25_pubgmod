@@ -1,0 +1,12 @@
+minplayers = 2
+wave_duration = 10800  ;1 minute = 3600 cycles
+nozone = 3600          ;time when everyone starts bleeding
+waitingtime = 4000     ;time for matchmaking
+burger_health = 4      ;amount of hp a burger restores per bite
+outofzone_dmg = 4      ;amount of damage you get for being outside of the battle zone
+prize_winner = 10000
+prize_generic = 50     ;for staying alive per place
+prize_kill = 150
+guns_to_bandages = 3   ;spawn ratio
+geoip = 1              ;tell where people join from
+verbose = 1            ;print chat messages to the console window

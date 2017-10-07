@@ -1,5 +1,12 @@
 
 
+--- 0.2 (10/7/17) ---
+
+- Fixed a few bugs
+- Added actual parachute gliding
+- 2 players mode is now random duels
+- Added a configuration file (pubg_config.txt)
+- Added geoip to show where people join from
 
 --- 0.1 (3/10/17) ---
 

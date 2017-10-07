@@ -20,26 +20,20 @@
 
 //-------------  gameplay settings -----------------------
 
-//todo: move to some kind of a config file (.ini?)
-
-define(maxplayers,#32)
-define(minplayers,#2)
-define(waitingtime,#4000) //time for matchmaking
-define(falldmg_timer,#500) //about 8 seconds just in case
-define(burger_health,#4)
-define(outsidezone_dmg,#5)
-//define(wave_duration,#9000)
+define(minplayers,mydata+2F1)
+define(waitingtime,mydata+2F2) //time for matchmaking
+define(falldmg_timer,#1000)
+define(burger_health,mydata+2F6)
+define(outofzone_dmg,mydata+2F7)
 define(wave_duration,mydata+240)
-//define(nozone,#3000)
 define(nozone,mydata+244)
-define(guns_to_bandages_ratio,3)
+define(guns_to_bandages_ratio,mydata+2F8)
 define(toplist,5)
-define(prize_winner,#10000)
-define(prize_generic,#50) //(for staying alive per place)
-define(prize_kill,#150)
-
-define(verbose,1) //print chat messages to the console window
-
+define(prize_winner,mydata+2F9)
+define(prize_generic,mydata+2FD) //(for staying alive per place)
+define(prize_kill,mydata+301)
+define(verbose,mydata+2F0)
+define(geoip,mydata+305)
 
 //-------------  addresses and structs -------------------
 
@@ -75,6 +69,7 @@ define(timer2,subrosadedicated025b.exe+1E68B854) //this one is useless actually
 define(cycles_per_minute,#3600) //per ingame minute, that is
 
 define(billboard_text,subrosadedicated025b.exe+D4F9978)
+define(lastjoinedip,subrosadedicated025b.exe+1E68B828)
 
 define(player0,subrosadedicated025b.exe+114EC160)
 define(playersize,2464)
@@ -114,6 +109,9 @@ define(humansize,2B90)
   define(human_x,D4)
   define(human_y,D8)
   define(human_z,DC)
+  define(human_vx,EC)
+  define(human_vy,F0)
+  define(human_vz,F4)
   define(human_hand1,2928) // amount held in the slot, followed by 9 item IDs (all ints)
   define(human_hand2,2950)
   define(human_slot1,2978)
@@ -124,6 +122,7 @@ define(humansize,2B90)
   define(human_bleeding,2B48) //the 1st bit turns the hp counter red
 define(humancap,#512)
 
+       define(human_parachuteflag,292C) //set to -1 when player has a parachute
 
 define(corp0,subrosadedicated025b.exe+D4F9A54)
 define(corpsize,127C)
@@ -252,8 +251,11 @@ define(fclosefunc,subrosadedicated025b.exe+61068) //-&gt;MSVCR100.fclose
 
 //------------  declarations -----------------------------
 
+registersymbol(mydata0)
+alloc(mydata0,0)     //(to prevent loadBinary from writing to the wrong address)
+mydata0:
+
 alloc(mydata,4096) //storage for variables and string literals used in this mod
-//registerSymbol(mydata)
 loadBinary(mydata, mydata.bin)
 
 define(mymessages,mydata+0) //2 byte offsets for the string literals
@@ -276,14 +278,18 @@ define(mymessages,mydata+0) //2 byte offsets for the string literals
   define(msg_rank,10)
   define(msg_s,11)
 
-define(msg__r,mydata+30)
+define(msg__r,mydata+24)
 define(msg__motd,mydata+101)
 
 //define(tmpstring,mydata+280)
 //define(mygame_bounds_name,mydata+348)
 alloc(tmpstring,2048)
 alloc(tmpstring2,512)
-define(mygame_bounds_name,mydata+300)
+//define(mygame_bounds_name,mydata+300)
+alloc(mygame_bounds_name,256)
+
+registersymbol(tmpstring)
+
 
 define(ammotable,mydata+250) //custom ammo capacity table
 define(bullet0Ctable,mydata+40) //a table connecting bullet stats to weapons
@@ -292,9 +298,12 @@ define(mygame_state,mydata+410) //0 - hasn't started, 1 - started, 2 - arena, 3 
 define(mygame_newtimer,mydata+408)
 define(mygame_msg_repeat,mydata+3F8)
 
+define(mygame_gliding,mydata+2D0)
+define(mygame_gliding_grav,mydata+2D4)
+define(mygame_gliding_height,mydata+58)
+
 define(mygame_bounds_inner,mydata+420)
 define(mygame_bounds_outer,mydata+430)
-
 define(mygame_bounds_initial,mydata+270)
 define(mygame_bounds_speed,mydata+248)
 define(mygame_bounds_tolerance,mydata+24C)
@@ -318,9 +327,9 @@ define(mygame_arena_sealevel,mydata+290)
 define(mygame_arena_car,mydata+294)
 define(mygame_arena_gun,mydata+298)
 define(mygame_arena_time,mydata+29C)
-
 define(mygame_arena_players,mydata+400)
 define(mygame_arena_initialized,mydata+3FC)
+
 
 define(myplayers_total,mydata+480)  //my player registry
 define(myplayers_alive,mydata+484)
@@ -352,7 +361,85 @@ define(buildingsize,40)
      char[20]: name
 }
 
+
+//----------  the lua part  --------------------------------
+
+{$lua}
+
+--https://stackoverflow.com/a/9102300
+getPath=function(str,sep)sep=sep or'\\'return str:match("(.*"..sep..")")end
+
+currentdir = getPath(readString("MSVCR100.dll+B55F8",256))
+
+mydata = 0
+tmpstring = 0
+
+------- configuration file ----------------------------------------
+
+function loadConfig()
+     mydata = getAddress("mydata0")
+     tmpstring = getAddress("tmpstring")
+  for line in io.lines(currentdir.."pubg_config.txt") do
+    line = string.sub(line,0,(line:find(";") or 0)-1)
+     entry = ((line..'='):gmatch("%s*(.-)%s*="))
+      key = entry()
+       if     key == "wave_duration"  then writeInteger(mydata+0x240,tonumber(entry()))
+       elseif key == "nozone"         then writeInteger(mydata+0x244,tonumber(entry()))
+       elseif key == "waitingtime"    then writeInteger(mydata+0x2F2,tonumber(entry()))
+       elseif key == "prize_winner"   then writeInteger(mydata+0x2F9,tonumber(entry()))
+       elseif key == "prize_generic"  then writeInteger(mydata+0x2FD,tonumber(entry()))
+       elseif key == "prize_kill"     then writeInteger(mydata+0x301,tonumber(entry()))
+       elseif key == "verbose"          then writeBytes(mydata+0x2F0,tonumber(entry()))
+       elseif key == "geoip"            then writeBytes(mydata+0x305,tonumber(entry()))
+       elseif key == "minplayers"       then writeBytes(mydata+0x2F1,tonumber(entry()))
+       elseif key == "burger_health"    then writeBytes(mydata+0x2F6,tonumber(entry()))
+       elseif key == "outofzone_dmg"    then writeBytes(mydata+0x2F7,tonumber(entry()))
+       elseif key == "guns_to_bandages" then writeBytes(mydata+0x2F8,tonumber(entry()))
+       end
+  end
+end
+
+------- geoip stuff -----------------------------------------------
+
+local geodb = require(currentdir.."geoip\\mmdblua\\mmdb\\init")
+                .open(currentdir.."geoip\\GeoLite2-Country.mmdb")
+
+-- https://github.com/fengpeiyuan/ipconv/blob/master/ipconv.lua
+local bit = require(currentdir.."geoip\\bitopt")
+function ip2Str(i)
+   local ret = math.floor(bit:band(i,0xFF))                .. "."
+            .. math.floor(bit:band(bit:rshift(i,8 ),0xFF)) .. "."
+            .. math.floor(bit:band(bit:rshift(i,16),0xFF)) .. "."
+            .. math.floor(bit:band(bit:rshift(i,24),0xFF))
+   return ret
+end
+
+function geoip(ip_i)
+  ip = ip2Str(ip_i)
+  info = geodb:search_ipv4(ip)
+  str = readString(tmpstring,256).." from "..info["country"]["names"]["en"]
+  writeString(tmpstring,str)
+  writeBytes(tmpstring+string.len(str))
+ return 0
+end
+
+{$asm}
+
+loadlibrary(luaclient-i386.dll)
+luacall(openLuaServer('CELUASERVER'))
+define(CELUA_ServerName,mydata+2A0)
+define(myluafunc_geoip,mydata+2B0)
+define(myluafunc_config,mydata+2E0)
+
 //--------------  utils  -----------------------------------
+
+alloc(loadconfigfile,64)
+createthread(loadconfigfile)
+loadconfigfile:
+    push 0
+    push myluafunc_config
+    call CELUA_ExecuteFunction
+  ret
 
 alloc(mycode,2048)
 mycode:
@@ -575,7 +662,7 @@ cmp [eax+myplayer_alive],0
         mov edx,[myplayers_total]
         sub edx,[myplayers_alive]
         mov [eax+myplayer_rank],edx
-          imul edx,prize_generic
+          imul edx,[prize_generic]
           add [eax+myplayer_prize],edx
           mov ecx,[eax+myplayer_player]
           add [ecx+player_cash],edx
@@ -612,9 +699,10 @@ cmp eax,FFFFFFFF
 cmp eax,ebx
   je registergettingshot_suicide
       inc [eax+myplayer_frags]
-      add [eax+myplayer_prize],prize_kill
+      mov ebp,[prize_kill]
+      add [eax+myplayer_prize],ebp
       mov edx,[eax+myplayer_player]
-      add [edx+player_cash],prize_kill
+      add [edx+player_cash],ebp
     push [ebx+myplayer_lastweapon]
     push [eax+myplayer_name]
     push msg_killed
@@ -662,9 +750,10 @@ endround:
       pushad
         mov ebx,[myplayers_total]
         mov [edx+myplayer0+myplayer_rank],ebx
-          add [edx+myplayer0+myplayer_prize],prize_winner
+           mov ebp,[prize_winner]
+           add [edx+myplayer0+myplayer_prize],ebp
           mov ebx,[edx+myplayer0+myplayer_player]
-          add [ebx+player_cash],prize_winner
+          add [ebx+player_cash],ebp
         push [edx+myplayer0+myplayer_name]
           mov edx,mymessages
           add dx,[mymessages+msg_winner*2]
@@ -728,7 +817,9 @@ ret
 
 label(minplayersmsg)
 minplayersmsg:
-    push minplayers
+   xor eax,eax
+   mov al,[minplayers]
+   push eax
       mov eax,mymessages
       add ax,[mymessages+msg_required*2]
      push eax
@@ -872,7 +963,9 @@ fstp [human0+human_y]
 
 {call dword ptr [randfunc]
 and eax,3}
-  push guns_to_bandages_ratio
+    xor eax,eax
+    mov al,[guns_to_bandages_ratio]
+  push eax
   push 1
   call irand
   add esp,8
@@ -1199,7 +1292,7 @@ add ebx,humansize
 
  //fail safety
 
-  cmp [myplayers_total],1//2//minplayers
+  cmp [myplayers_total],2//minplayers
   jge roundstart_allgood
     //mov [mygame_state],0
     //mov [gamestate],3
@@ -1287,11 +1380,35 @@ cmp [mygame_arena_initialized],0
  jne roundframe_arena_init_skip
           push 7
           push [mygame_arena_gun]
+                      cmp [myplayers_total],2
+                      jne arena_init_normal1
+                        pushad
+                          push 5
+                          push 0
+                          call irand
+                          add esp,8
+                          imul edx,2
+                          mov [esp+20],edx
+                        popad
+                      label(arena_init_normal1)
+                      arena_init_normal1:
           mov eax,[mygame_arena_players+0]
           push [eax+myplayer0+myplayer_humanid]
           call armfunc
               push 7
               push [mygame_arena_gun]
+                      cmp [myplayers_total],2
+                      jne arena_init_normal2
+                        pushad
+                          push 5
+                          push 0
+                          call irand
+                          add esp,8
+                          imul edx,2
+                          mov [esp+20],edx
+                        popad
+                      label(arena_init_normal2)
+                      arena_init_normal2:
               mov eax,[mygame_arena_players+4]
               push [eax+myplayer0+myplayer_humanid]
               call armfunc
@@ -1303,10 +1420,16 @@ roundframe_arena_init_skip:
 
 cmp [mygame_state],1
  jne roundframe_arena_skip
+              cmp [myplayers_total],2
+               jle roundframe_arena_skip
 cmp [myplayers_total],2
- jle roundframe_arena_skip
+ jl roundframe_arena_skip
+ je roundframe_arena_start
 cmp [myplayers_alive],2
  jne roundframe_arena_skip
+
+label(roundframe_arena_start)
+roundframe_arena_start:
 
  mov [mygame_state],2
   mov eax,[mygame_arena_sealevel]
@@ -1368,6 +1491,17 @@ cmp [myplayers_alive],2
                  lea eax,[esp+C]
                  push eax //*position
                  push [mygame_arena_car] //type
+                      cmp [myplayers_total],2
+                      jne arena_loop_vehicle_normal
+                        pushad
+                          push 9
+                          push 0
+                          call irand
+                          add esp,8
+                          mov [esp+20],edx
+                        popad
+                      label(arena_loop_vehicle_normal)
+                      arena_loop_vehicle_normal:
                  call vehiclefunc
                 add esp,44
                mov ebp,eax
@@ -1897,7 +2031,6 @@ roundframe_players_loop:
 
   mov eax,[ebx+myplayer0+myplayer_human]
 
-
   //check if in bounds
 
     mov [eax+human_bleeding],3
@@ -2056,7 +2189,8 @@ newmem_roundstarting:
           je roundstarting_players_next
         cmp [ebx+player0+player_team],0
           sete al
-          add edx,eax
+          add dl,al
+          //add edx,eax
         inc ebp
         cmp ebp,[playercount]
         jge roundstarting_check
@@ -2066,9 +2200,10 @@ newmem_roundstarting:
      loop roundstarting_players
          label(roundstarting_check)
          roundstarting_check:
-       cmp edx,minplayers
+       cmp dl,[minplayers]
         jge roundstarting_skip
-                mov [esp+14],waitingtime
+                mov eax,[waitingtime]
+                mov [esp+14],eax
                 call minplayersmsg
    label(roundstarting_skip)
    roundstarting_skip:
@@ -2204,7 +2339,7 @@ returnhere_armhack:
 
 //  make burgers restore health
 
-alloc(newmem_burger,2048)
+alloc(newmem_burger,64)
 label(returnhere_burger)
 label(originalcode_burger)
 label(exit_burger)
@@ -2213,7 +2348,10 @@ newmem_burger:
 
 cmp [eax+human0+human_health],#75
 jge originalcode_burger
-add [eax+human0+human_health],burger_health
+ push ebx
+  mov bl,[burger_health]
+  add byte [eax+human0+human_health],bl
+ pop ebx
 
 originalcode_burger:
 add dword ptr [eax+subrosadedicated025b.exe+15CE9F4],08
@@ -2254,13 +2392,6 @@ pickup_skipedxcheck:
         imul eax,humansize
                   cmp eax,[helicopterpilot]
                    je pickup_ret
-        //remove the parachute indicator
-        cmp [eax+human0+human_health],#101
-        jl pickup_np
-          dec [eax+human0+human_health]
-          mov [eax+human0+human_hand1+8],#90000
-        label(pickup_np)
-        pickup_np:
                 cmp [eax+human0+human_hand1+4],edi
                  je pickup_ret
     push 0
@@ -2347,10 +2478,10 @@ call searchmyplayer
 cmp eax,FFFFFFFF
 je falldmg_skip
 
-    mov edx,[timer1]
-    add edx,#450
     cmp [eax+myplayer_lastweapon],subrosadedicated025b.exe+150C9FC8 //magnum name
      jne falldmg_notshot
+    mov edx,[timer1]
+    add edx,#450
     cmp edx,[eax+myplayer_lastgotshot]
      jl falldmg_notshot
          mov ebx,eax
@@ -2428,9 +2559,10 @@ cmp eax,FFFFFFFF
  je cardmg_bot
 
           inc [eax+myplayer_frags]
-          add [eax+myplayer_prize],prize_kill
+          mov ecx,[prize_kill]
+          add [eax+myplayer_prize],ecx
           mov ebx,[eax+myplayer_player]
-          add [ebx+player_cash],prize_kill
+          add [ebx+player_cash],ecx
 
 //pop esi
 mov esi,[esp]
@@ -2527,14 +2659,15 @@ bleed_alive:
         jne originalcode_bleed
       cmp eax,0
        jl originalcode_bleed
-      sub eax,outsidezone_dmg
+      //sub eax,outsidezone_dmg
+      sub al,[outofzone_dmg]
                   cmp [mygame_state],2
                     jne originalcode_bleed
                   cmp eax,#25
                    jl originalcode_bleed
-                     sub eax,outsidezone_dmg
-                     sub eax,outsidezone_dmg
-                     sub eax,outsidezone_dmg
+                     sub al,[outofzone_dmg]
+                     sub al,[outofzone_dmg]
+                     sub al,[outofzone_dmg]
 
 originalcode_bleed:
 
@@ -2558,10 +2691,6 @@ label(originalcode_shotdmg)
 label(exit_shotdmg)
 
 newmem_shotdmg:
-
-cmp [gamestate],1
-cmove ebp,[subrosadedicated025b.exe+BA2DE70]
-je originalcode_shotdmg
 
 pushad
 
@@ -2588,6 +2717,15 @@ pushad
      pop eax
     label(shotdmg_notmagnum)
     shotdmg_notmagnum:
+
+cmp [gamestate],1
+ jne shotdmg_started
+//cmove ebp,[subrosadedicated025b.exe+BA2DE70]
+//je originalcode_shotdmg
+  mov [esp+8],0
+  jmp shotdmg_skip
+label(shotdmg_started)
+shotdmg_started:
 
 //push ecx
 mov esi,ebx
@@ -2780,6 +2918,159 @@ jmp returnhere_exited
 jmp newmem_exited
 nop
 returnhere_exited:
+
+
+// -- player joined (message) --
+
+alloc(newmem_joinedmsg,512)
+label(returnhere_joinedmsg)
+label(originalcode_joinedmsg)
+label(exit_joinedmsg)
+
+newmem_joinedmsg:
+
+   cmp [geoip],0
+     je originalcode_joinedmsg
+
+pushad
+   push eax
+   push tmpstring
+   call dword ptr [sprintffunc]
+   add esp,8
+           push [lastjoinedip]
+           push myluafunc_geoip
+           call CELUA_ExecuteFunction
+      mov ebp,[esp+C]
+      mov [ebp+4],tmpstring
+popad
+
+originalcode_joinedmsg:
+call subrosadedicated025b.exe+63B0
+
+exit_joinedmsg:
+jmp returnhere_joinedmsg
+
+"subrosadedicated025b.exe"+36204:
+jmp newmem_joinedmsg
+returnhere_joinedmsg:
+
+
+
+//--- parachute gliding mechanics -----------------
+
+// velocity
+
+alloc(newmem_playervelocity,256)
+label(returnhere_playervelocity)
+label(originalcode_playervelocity)
+label(exit_playervelocity)
+
+newmem_playervelocity:
+fstp dword ptr [ecx]
+
+push eax
+ lea eax,[ecx-F4]
+   cmp [eax+human_parachuteflag],FFFFFFFF
+    jne playervelocity_skip
+      fld [eax+human_y]
+      fld [mygame_gliding_height]
+      fcomip st(0),st(1)
+      fstp st(0)
+      jb playervelocity_skip
+        fld [eax+human_vy]
+        fmul [mygame_gliding_grav]
+        fabs
+        fchs
+        fld [eax+human_vaxis]
+           fmul [mygame_gliding]
+           fmul [mygame_gliding]
+           fmul [mygame_gliding]
+           //fmul [mygame_gliding]
+        fsubp st(1),st(0)
+        fstp [eax+human_vy]
+            fld [eax+human_vaxis] {todo: rework}
+            fld1
+            fadd st(0),st(1)
+            faddp
+            //fld [eax+10C]
+            fmul [eax+10C]
+            fmul [mygame_gliding]
+            fstp [eax+human_vx]
+              fld [eax+human_vaxis]
+              fld1
+              fadd st(0),st(1)
+              faddp
+              fld [eax+104]
+              fchs
+              fmulp
+              //faddp
+              //fadd [eax+human_vaxis]
+              fmul [mygame_gliding]
+              fstp [eax+human_vz]
+
+     label(playervelocity_skip)
+     playervelocity_skip:
+pop eax
+
+originalcode_playervelocity:
+//fstp dword ptr [ecx]
+fld dword ptr [eax+18]
+
+exit_playervelocity:
+jmp returnhere_playervelocity
+
+"subrosadedicated025b.exe"+47EDE:
+jmp newmem_playervelocity
+returnhere_playervelocity:
+
+
+// rotation
+
+
+alloc(newmem_playertorque,128)
+label(returnhere_playertorque)
+label(originalcode_playertorque)
+label(exit_playertorque)
+
+newmem_playertorque:
+
+fld dword ptr [eax+30]
+fstp dword ptr [ecx+48]
+
+push eax
+ lea eax,[ecx-F4]
+    cmp [eax+human_parachuteflag],FFFFFFFF
+     jne playertorque_skip
+           fldz
+           fst [ecx+40]
+           fstp [ecx+48]
+              fld [ecx+44]
+              fadd [eax+human_haxis]
+              call fsign
+              fmul [mygame_gliding]
+              fmul [mygame_gliding]
+              fstp [ecx+44]
+        cmp [eax+human_grounded],1
+         jne playertorque_skip
+             mov [eax+human_parachuteflag],0
+             dec [eax+human_health]
+             {mov esi,eax
+             call falldmg_check}
+ label(playertorque_skip)
+ playertorque_skip:
+pop eax
+
+originalcode_playertorque:
+{fld dword ptr [eax+30]
+fstp dword ptr [ecx+48]}
+
+exit_playertorque:
+jmp returnhere_playertorque
+
+"subrosadedicated025b.exe"+47EFE:
+jmp newmem_playertorque
+nop
+returnhere_playertorque:
 
 
 
@@ -3077,8 +3368,7 @@ newmem_verbose:
 
 pushad
 pushfd
-    mov ebp,verbose
-    cmp ebp,1
+    cmp byte [verbose],1
     jne verbose_skip
 mov ebp,[esp+4+C]
    push [ebp+8]
@@ -3114,6 +3404,27 @@ dealloc(buildingdata)
 dealloc(mycode)
 dealloc(tmpstring)
 dealloc(tmpstring2)
+dealloc(mygame_bounds_name)
+
+unregistersymbol(tmpstring)
+unregistersymbol(mydata0)
+
+dealloc(newmem_playertorque)
+"subrosadedicated025b.exe"+47EFE:
+fld dword ptr [eax+30]
+fstp dword ptr [ecx+48]
+//Alt: db D9 40 30 D9 59 48
+
+dealloc(newmem_playervelocity)
+"subrosadedicated025b.exe"+47EDE:
+fstp dword ptr [ecx]
+fld dword ptr [eax+18]
+//Alt: db D9 19 D9 40 18
+
+dealloc(newmem_joinedmsg)
+"subrosadedicated025b.exe"+36204:
+call subrosadedicated025b.exe+63B0
+//Alt: db E8 A7 01 FD FF
 
 "subrosadedicated025b.exe"+17ADF: //(friendly fire)
 mov [esi+subrosadedicated025b.exe+114EC1A0],edi
@@ -3252,10 +3563,13 @@ dealloc(newmem_roundstart)
 mov [subrosadedicated025b.exe+D4F9960],ebx
 //Alt: db 89 1D 60 99 8A 0E
 
+
 </AssemblerScript>
     </CheatEntry>
   </CheatEntries>
   <UserdefinedSymbols/>
+  <Comments>Info about this table:
+</Comments>
   <LuaScript>-- see 'main.cea' for the actual implementation
 
 game = "subrosadedicated025b.exe"
@@ -3269,6 +3583,7 @@ game = "subrosadedicated025b.exe"
 local addressList = getAddressList()
 addressList.getMemoryRecordByDescription('main.cea').Active = true
 
-closeCE()
+--while(openProcessID()&gt;0) do sleep(100) end
+--closeCE()
 </LuaScript>
 </CheatTable>
