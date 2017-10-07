@@ -1,3 +1,5 @@
+(taken from https://github.com/daurnimator/mmdblua instead of adding as a submodule)
+
 # mmdblua
 
 A Lua library for reading [MaxMind's Geolocation database format](https://maxmind.github.io/MaxMind-DB/).
