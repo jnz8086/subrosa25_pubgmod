@@ -4,7 +4,7 @@
     <CheatEntry>
       <ID>0</ID>
       <Description>"main.cea"</Description>
-      <LastState/>
+      <LastState Activated="1"/>
       <VariableType>Auto Assembler Script</VariableType>
       <AssemblerScript>[ENABLE]
 
@@ -419,7 +419,7 @@ function geoip(ip_i)
   info = geodb:search_ipv4(ip)
   str = readString(tmpstring,256).." from "..info["country"]["names"]["en"]
   writeString(tmpstring,str)
-  writeBytes(tmpstring+string.len(str))
+  writeBytes(tmpstring+string.len(str),0)
  return 0
 end
 
