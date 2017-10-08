@@ -1420,8 +1420,8 @@ roundframe_arena_init_skip:
 
 cmp [mygame_state],1
  jne roundframe_arena_skip
-              cmp [myplayers_total],2
-               jle roundframe_arena_skip
+              {cmp [myplayers_total],2
+               jle roundframe_arena_skip}
 cmp [myplayers_total],2
  jl roundframe_arena_skip
  je roundframe_arena_start
